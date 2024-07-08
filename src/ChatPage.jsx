@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import {
   Box,
   Button,
@@ -39,15 +40,25 @@ function ChatPage() {
     if (!input.trim()) return;
 
     const userMessage = { sender: 'user', text: input };
-    setMessages([...messages, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInput('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      const aiMessage = { sender: 'ai', text: "This is a simulated AI response." };
-      setMessages([...messages, userMessage, aiMessage]);
+    try {
+      const response = await axios.post('http://localhost:5010/generate', {
+        conversationHistory: newMessages
+      });
+
+      const aiMessage = { sender: 'assistant', text: response.data.response };
+      setMessages([...newMessages, aiMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage = { sender: 'system', text: 'Error generating response from AI.' };
+      setMessages([...newMessages, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1000);
+    }
   };
 
   const handleCopy = (text) => {
