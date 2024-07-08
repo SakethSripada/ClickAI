@@ -72,19 +72,27 @@ const CustomContainer = styled(Container)`
 
 const CustomTextField = styled(TextField)`
   & .MuiOutlinedInput-root {
+    display: flex;
+    align-items: flex-start;
     padding: 0;
     height: auto;
-    display: flex;
-    align-items: center;
+    max-height: 150px;
+    overflow-y: auto;
+    box-sizing: border-box;
+    transition: max-height 0.2s, min-height 0.2s;
+    min-height: 45px;
   }
   & .MuiOutlinedInput-input {
     padding: 10px;
-    height: 100%;
+    height: auto;
     overflow-y: auto;
     box-sizing: border-box;
   }
   & .MuiOutlinedInput-multiline {
     padding: 0;
+  }
+  & .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #a024b4;
   }
   & .MuiOutlinedInput-root::-webkit-scrollbar {
     width: 8px;
@@ -283,10 +291,13 @@ function ChatPage() {
             fullWidth
             multiline
             onKeyDown={handleKeyPress}
-            sx={{ mr: 1, flex: 1, backgroundColor: '#2e2e2e', borderRadius: '4px', height: '45px' }}
+            sx={{ mr: 1, flex: 1, backgroundColor: '#2e2e2e', borderRadius: '4px' }}
             InputProps={{
               style: {
-                height: '45px'
+                height: 'auto',
+                maxHeight: '150px',
+                minHeight: '45px',
+                overflowY: 'auto'
               }
             }}
           />
