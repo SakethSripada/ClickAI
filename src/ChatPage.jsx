@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import styled from 'styled-components';
 import {
   Box,
   Button,
@@ -50,6 +51,53 @@ const theme = createTheme({
     },
   },
 });
+
+const CustomContainer = styled(Container)`
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #4e4e4e #2e2e2e;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: #2e2e2e;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #4e4e4e;
+    border-radius: 10px;
+    border: 3px solid #2e2e2e;
+  }
+`;
+
+const CustomTextField = styled(TextField)`
+  & .MuiOutlinedInput-root {
+    padding: 0;
+    height: auto;
+    display: flex;
+    align-items: center;
+  }
+  & .MuiOutlinedInput-input {
+    padding: 10px;
+    height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+  & .MuiOutlinedInput-multiline {
+    padding: 0;
+  }
+  & .MuiOutlinedInput-root::-webkit-scrollbar {
+    width: 8px;
+  }
+  & .MuiOutlinedInput-root::-webkit-scrollbar-track {
+    background: #2e2e2e;
+  }
+  & .MuiOutlinedInput-root::-webkit-scrollbar-thumb {
+    background-color: #4e4e4e;
+    border-radius: 10px;
+    border: 3px solid #2e2e2e;
+  }
+`;
 
 function ChatPage() {
   const [messages, setMessages] = useState([]);
@@ -187,7 +235,7 @@ function ChatPage() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Container maxWidth="sm" sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '10px', backgroundColor: theme.palette.background.default }}>
+      <CustomContainer maxWidth="sm" sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '10px', backgroundColor: theme.palette.background.default }}>
         <Paper sx={{ flex: 1, padding: '10px', overflowY: 'auto', backgroundColor: theme.palette.background.default }}>
           <Box>
             {messages.map((msg, index) => (
@@ -227,7 +275,7 @@ function ChatPage() {
           </Box>
         </Paper>
         <Box sx={{ display: 'flex', alignItems: 'center', padding: '5px', backgroundColor: '#1e1e1e' }}>
-          <TextField
+          <CustomTextField
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type a message..."
@@ -246,7 +294,7 @@ function ChatPage() {
             Send
           </Button>
         </Box>
-      </Container>
+      </CustomContainer>
     </ThemeProvider>
   );
 }
