@@ -73,6 +73,44 @@ function ChatPage() {
     }
   };
 
+  const renderMessageContent = (text) => {
+    const parts = text.split(/(```\w*\n[\s\S]*?```)/g);
+
+    return parts.map((part, index) => {
+      if (part.startsWith('```') && part.endsWith('```')) {
+        const codeContent = part.replace(/```(\w*)\n|```/g, '').trim();
+        return (
+          <Box key={index} sx={{ position: 'relative' }}>
+            <SyntaxHighlighter language="javascript" style={oneDark}>
+              {codeContent}
+            </SyntaxHighlighter>
+            <IconButton
+              onClick={() => handleCopy(codeContent)}
+              size="small"
+              sx={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                backgroundColor: '#3e3e3e',
+                '&:hover': {
+                  backgroundColor: '#4e4e4e',
+                },
+              }}
+            >
+              <FaCopy style={{ color: '#007bff' }} />
+            </IconButton>
+          </Box>
+        );
+      } else {
+        return (
+          <Typography key={index} sx={{ color: '#fff' }}>
+            {part}
+          </Typography>
+        );
+      }
+    });
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <Container maxWidth="sm" sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '10px', backgroundColor: theme.palette.background.default }}>
@@ -91,30 +129,7 @@ function ChatPage() {
                     wordBreak: 'break-word',
                   }}
                 >
-                  {msg.text.includes('```') ? (
-                    <Box sx={{ position: 'relative' }}>
-                      <SyntaxHighlighter language="javascript" style={oneDark}>
-                        {msg.text.replace(/```/g, '')}
-                      </SyntaxHighlighter>
-                      <IconButton
-                        onClick={() => handleCopy(msg.text.replace(/```/g, ''))}
-                        size="small"
-                        sx={{
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          backgroundColor: '#3e3e3e',
-                          '&:hover': {
-                            backgroundColor: '#4e4e4e',
-                          },
-                        }}
-                      >
-                        <FaCopy style={{ color: '#007bff' }} />
-                      </IconButton>
-                    </Box>
-                  ) : (
-                    <Typography sx={{ color: '#fff' }}>{msg.text}</Typography>
-                  )}
+                  {renderMessageContent(msg.text)}
                 </Paper>
               </Box>
             ))}
