@@ -14,15 +14,11 @@
   "action": {
     "default_popup": "index.html",
     "default_icon": {
-      "16": "icon16.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
+      "192": "logo192.png"
     }
   },
   "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "192": "logo192.png"
   },
   "content_scripts": [
     {
