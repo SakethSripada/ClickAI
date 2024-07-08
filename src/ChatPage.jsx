@@ -8,9 +8,13 @@ import {
   TextField,
   Typography,
   IconButton,
-  CircularProgress
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon
 } from '@mui/material';
-import { FaCopy, FaRedo } from 'react-icons/fa';
+import { FaCopy, FaRedo, FaCircle, FaRegCircle } from 'react-icons/fa';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
@@ -142,6 +146,34 @@ function ChatPage() {
               <FaCopy style={{ color: '#007bff' }} />
             </IconButton>
           </Box>
+        );
+      } else if (part.match(/^-\s.*/)) {
+        const listItems = part.split('\n').map((item, i) => (
+          <ListItem key={i} sx={{ color: '#fff', paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
+            <ListItemIcon sx={{ minWidth: '30px' }}>
+              <FaRegCircle style={{ color: '#007bff' }} />
+            </ListItemIcon>
+            <ListItemText primary={item.replace(/^- /, '')} />
+          </ListItem>
+        ));
+        return (
+          <List key={index} sx={{ padding: 0 }}>
+            {listItems}
+          </List>
+        );
+      } else if (part.match(/^\d+\.\s.*/)) {
+        const listItems = part.split('\n').map((item, i) => (
+          <ListItem key={i} sx={{ color: '#fff', paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
+            <ListItemIcon sx={{ minWidth: '30px' }}>
+              <Typography variant="body2" color="textSecondary">{item.match(/^\d+/)[0]}</Typography>
+            </ListItemIcon>
+            <ListItemText primary={item.replace(/^\d+\.\s/, '')} />
+          </ListItem>
+        ));
+        return (
+          <List key={index} sx={{ padding: 0 }}>
+            {listItems}
+          </List>
         );
       } else {
         return (
