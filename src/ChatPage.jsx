@@ -10,7 +10,7 @@ import {
   IconButton,
   CircularProgress
 } from '@mui/material';
-import { FaCopy } from 'react-icons/fa';
+import { FaCopy, FaRedo } from 'react-icons/fa';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
@@ -27,6 +27,22 @@ const theme = createTheme({
     text: {
       primary: '#ffffff',
       secondary: '#aaaaaa',
+    },
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#2e2e2e',
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          color: '#ffffff',
+        },
+      },
     },
   },
 });
@@ -50,11 +66,37 @@ function ChatPage() {
         conversationHistory: newMessages
       });
 
-      const aiMessage = { sender: 'assistant', text: response.data.response };
+      const aiMessage = { sender: 'assistant', text: response.data.response, isContinued: response.data.isContinued };
       setMessages([...newMessages, aiMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage = { sender: 'system', text: 'Error generating response from AI.' };
+      setMessages([...newMessages, errorMessage]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleContinueGeneration = async () => {
+    const lastMessageIndex = messages.length - 1;
+    if (lastMessageIndex < 0) return;
+
+    const lastMessage = messages[lastMessageIndex];
+    const newMessages = [...messages];
+
+    setIsTyping(true);
+
+    try {
+      const response = await axios.post('http://localhost:5010/generate', {
+        conversationHistory: messages
+      });
+
+      const aiMessage = { sender: 'assistant', text: lastMessage.text + response.data.response, isContinued: response.data.isContinued };
+      newMessages[lastMessageIndex] = aiMessage;
+      setMessages(newMessages);
+    } catch (error) {
+      console.error('Error continuing generation:', error);
+      const errorMessage = { sender: 'system', text: 'Error continuing response from AI.' };
       setMessages([...newMessages, errorMessage]);
     } finally {
       setIsTyping(false);
@@ -74,10 +116,10 @@ function ChatPage() {
   };
 
   const renderMessageContent = (text) => {
-    const parts = text.split(/(```\w*\n[\s\S]*?```)/g);
+    const parts = text.split(/(```[\s\S]*?```|```[\s\S]*?$)/g);
 
     return parts.map((part, index) => {
-      if (part.startsWith('```') && part.endsWith('```')) {
+      if (part.startsWith('```')) {
         const codeContent = part.replace(/```(\w*)\n|```/g, '').trim();
         return (
           <Box key={index} sx={{ position: 'relative' }}>
@@ -131,6 +173,15 @@ function ChatPage() {
                 >
                   {renderMessageContent(msg.text)}
                 </Paper>
+                {msg.sender === 'assistant' && msg.isContinued && (
+                  <Button
+                    onClick={handleContinueGeneration}
+                    startIcon={<FaRedo />}
+                    sx={{ mt: 1, color: '#007bff' }}
+                  >
+                    Continue generation
+                  </Button>
+                )}
               </Box>
             ))}
             {isTyping && (

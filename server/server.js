@@ -26,19 +26,31 @@ app.use(cors({
 
 app.use(express.json());
 
+const incompleteResponses = {};
+
 app.post('/generate', async (req, res) => {
-  const conversationHistory = req.body.conversationHistory;
+  const { conversationHistory, continueId } = req.body;
 
   if (!conversationHistory || !Array.isArray(conversationHistory) || conversationHistory.length === 0) {
     return res.status(400).json({ error: "Invalid conversation history. Expected a non-empty array." });
   }
 
-  try {
-    const formattedHistory = conversationHistory.map((msg) => ({
-      role: msg.sender === 'user' ? 'user' : 'assistant',
-      content: msg.text,
-    }));
+  let formattedHistory = conversationHistory.map((msg) => ({
+    role: msg.sender === 'user' ? 'user' : 'assistant',
+    content: msg.text,
+  }));
 
+  if (continueId && incompleteResponses[continueId]) {
+    formattedHistory = [
+      ...formattedHistory,
+      ...incompleteResponses[continueId].map((msg) => ({
+        role: 'assistant',
+        content: msg,
+      })),
+    ];
+  }
+
+  try {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -54,7 +66,15 @@ app.post('/generate', async (req, res) => {
       }
     );
 
-    res.json({ response: response.data.choices[0].message.content, id: response.data.id, isContinued: response.data.choices[0].finish_reason === 'length' });
+    const responseContent = response.data.choices[0].message.content;
+    const responseId = response.data.id;
+    const isContinued = response.data.choices[0].finish_reason === 'length';
+
+    if (isContinued) {
+      incompleteResponses[responseId] = (incompleteResponses[continueId] || []).concat(responseContent);
+    }
+
+    res.json({ response: responseContent, id: responseId, isContinued });
   } catch (error) {
     console.error('Error calling OpenAI API:', error.response ? error.response.data : error.message);
     res.status(500).json({ error: 'Error generating response' });
