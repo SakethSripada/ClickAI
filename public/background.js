@@ -17,7 +17,7 @@ chrome.runtime.onInstalled.addListener(() => {
           injectConsoleLog(tab.id, "Captured Text: " + selectedText); 
           sendTextToAI(tab.id, selectedText, (response) => {
             injectConsoleLog(tab.id, "AI Response: " + response); 
-            displayAlert(tab.id, `AI Response: ${response}`);
+            displayCustomAlert(tab.id, `AI Response: ${response}`);
           });
         }
       });
@@ -44,23 +44,19 @@ chrome.runtime.onInstalled.addListener(() => {
       if (data && data.response) {
         callback(data.response);
       } else {
-        injectConsoleLog(tabId, 'Error: No response from AI'); // Log error
-        displayAlert(tabId, 'Error: No response from AI');
+        injectConsoleLog(tabId, 'Error: No response from AI'); 
+        displayCustomAlert(tabId, 'Error: No response from AI');
       }
     })
     .catch(error => {
       console.error('Error sending text to AI:', error);
       injectConsoleLog(tabId, 'Error: Unable to contact AI server');
-      displayAlert(tabId, 'Error: Unable to contact AI server');
+      displayCustomAlert(tabId, 'Error: Unable to contact AI server');
     });
   }
   
-  function displayAlert(tabId, message) {
-    chrome.scripting.executeScript({
-      target: { tabId: tabId },
-      func: (msg) => alert(msg),
-      args: [message]
-    });
+  function displayCustomAlert(tabId, message) {
+    chrome.tabs.sendMessage(tabId, { type: 'customAlert', message: message });
   }
   
   function injectConsoleLog(tabId, message) {
