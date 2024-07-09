@@ -42,10 +42,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         border-radius: 10px;
         max-width: 80%;
         text-align: center;
+        color: #000; 
       }
       .custom-alert-box p {
         margin: 0 0 10px;
         font-size: 16px;
+        color: #000; 
       }
       .custom-alert-box button {
         padding: 10px 20px;
