@@ -31,7 +31,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     style.innerHTML = `
       .custom-alert-box {
         position: fixed;
-        top: 20%;
+        top: 30%;
         left: 50%;
         transform: translate(-50%, -50%);
         background-color: #fff;
