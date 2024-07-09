@@ -14,7 +14,9 @@ chrome.runtime.onInstalled.addListener(() => {
       }, (results) => {
         if (results && results[0] && results[0].result) {
           const selectedText = results[0].result;
-          sendTextToAI(selectedText, (response) => {
+          injectConsoleLog(tab.id, "Captured Text: " + selectedText); 
+          sendTextToAI(tab.id, selectedText, (response) => {
+            injectConsoleLog(tab.id, "AI Response: " + response); 
             displayAlert(tab.id, `AI Response: ${response}`);
           });
         }
@@ -27,7 +29,7 @@ chrome.runtime.onInstalled.addListener(() => {
     return selectedText ? selectedText : null;
   }
   
-  function sendTextToAI(text, callback) {
+  function sendTextToAI(tabId, text, callback) {
     fetch('http://localhost:5010/generate', {
       method: 'POST',
       headers: {
@@ -42,12 +44,14 @@ chrome.runtime.onInstalled.addListener(() => {
       if (data && data.response) {
         callback(data.response);
       } else {
-        displayAlert(tab.id, 'Error: No response from AI');
+        injectConsoleLog(tabId, 'Error: No response from AI'); // Log error
+        displayAlert(tabId, 'Error: No response from AI');
       }
     })
     .catch(error => {
       console.error('Error sending text to AI:', error);
-      displayAlert(tab.id, 'Error: Unable to contact AI server');
+      injectConsoleLog(tabId, 'Error: Unable to contact AI server');
+      displayAlert(tabId, 'Error: Unable to contact AI server');
     });
   }
   
@@ -55,6 +59,14 @@ chrome.runtime.onInstalled.addListener(() => {
     chrome.scripting.executeScript({
       target: { tabId: tabId },
       func: (msg) => alert(msg),
+      args: [message]
+    });
+  }
+  
+  function injectConsoleLog(tabId, message) {
+    chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      func: (msg) => console.log(msg),
       args: [message]
     });
   }
