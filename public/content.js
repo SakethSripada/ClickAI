@@ -48,6 +48,9 @@ function showCustomAlert(message) {
         box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
         border-radius: 10px;
         max-width: 80%;
+        max-height: 60%;
+        overflow-y: auto;
+        overflow-x: hidden;
         text-align: center;
         color: #000;
       }
