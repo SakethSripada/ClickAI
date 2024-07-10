@@ -96,8 +96,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 function highlightExtensionIcon() {
-    chrome.action.setBadgeText({ text: '!' });
-    chrome.action.setBadgeBackgroundColor({ color: '#FF0000' });
+    chrome.action.setBadgeText({ text: 'NEW' });
+    chrome.action.setBadgeBackgroundColor({ color: '#00FF00' });
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
