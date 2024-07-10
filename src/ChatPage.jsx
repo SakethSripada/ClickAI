@@ -244,11 +244,12 @@ function ChatPage() {
           </List>
         );
       } else {
-        return (
-          <Typography key={index} sx={{ color: '#fff' }}>
-            {part}
+        const mathSteps = part.split('\n').map((line, i) => (
+          <Typography key={i} sx={{ color: '#fff', display: 'block', marginBottom: '4px' }}>
+            {line}
           </Typography>
-        );
+        ));
+        return mathSteps;
       }
     });
   };
