@@ -1,32 +1,31 @@
 console.log('Content script loaded');
 
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'customAlert') {
-      showCustomAlert(request.message);
+        showCustomAlert(request.message);
     }
-  });
-  
-  function showCustomAlert(message) {
+});
+
+function showCustomAlert(message) {
     const existingAlert = document.querySelector('.custom-alert-box');
     if (existingAlert) {
-      existingAlert.remove();
+        existingAlert.remove();
     }
-  
+
     const alertBox = document.createElement('div');
     alertBox.className = 'custom-alert-box';
-    
+
     const alertMessage = document.createElement('p');
     alertMessage.innerText = message;
-    
+
     const closeButton = document.createElement('button');
     closeButton.innerText = 'Close';
     closeButton.onclick = () => alertBox.remove();
-    
+
     alertBox.appendChild(alertMessage);
     alertBox.appendChild(closeButton);
     document.body.appendChild(alertBox);
-  
+
     const style = document.createElement('style');
     style.innerHTML = `
       .custom-alert-box {
@@ -63,5 +62,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     `;
     document.head.appendChild(style);
-  }
-  
+
+    document.addEventListener('click', (event) => {
+        if (!alertBox.contains(event.target) && !closeButton.contains(event.target)) {
+            alertBox.remove();
+        }
+    }, { once: true });
+}
