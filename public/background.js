@@ -11,9 +11,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         if (info.selectionText) {
             const selectedText = info.selectionText;
             injectConsoleLog(tab.id, "Captured Text: " + selectedText);
+            displayLoadingAlert(tab.id, "Getting AI Response...");
             sendTextToAI(tab.id, selectedText, (response) => {
                 injectConsoleLog(tab.id, "AI Response: " + response);
-                displayCustomAlert(tab.id, `AI Response: ${response}`);
+                updateCustomAlert(tab.id, `AI Response: ${response}`);
                 chrome.runtime.sendMessage({ type: 'openChat', message: response });
             });
         } else {
@@ -24,9 +25,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                 if (results && results[0] && results[0].result) {
                     const selectedText = results[0].result;
                     injectConsoleLog(tab.id, "Captured Text: " + selectedText);
+                    displayLoadingAlert(tab.id, "Getting AI Response...");
                     sendTextToAI(tab.id, selectedText, (response) => {
                         injectConsoleLog(tab.id, "AI Response: " + response);
-                        displayCustomAlert(tab.id, `AI Response: ${response}`);
+                        updateCustomAlert(tab.id, `AI Response: ${response}`);
                         chrome.runtime.sendMessage({ type: 'openChat', message: response });
                     });
                 } else {
@@ -59,18 +61,22 @@ function sendTextToAI(tabId, text, callback) {
             callback(data.response);
         } else {
             injectConsoleLog(tabId, 'Error: No response from AI');
-            displayCustomAlert(tabId, 'Error: No response from AI');
+            updateCustomAlert(tabId, 'Error: No response from AI');
         }
     })
     .catch(error => {
         console.error('Error sending text to AI:', error);
         injectConsoleLog(tabId, 'Error: Unable to contact AI server');
-        displayCustomAlert(tabId, 'Error: Unable to contact AI server');
+        updateCustomAlert(tabId, 'Error: Unable to contact AI server');
     });
 }
 
-function displayCustomAlert(tabId, message) {
-    chrome.tabs.sendMessage(tabId, { type: 'customAlert', message: message });
+function displayLoadingAlert(tabId, message) {
+    chrome.tabs.sendMessage(tabId, { type: 'customAlert', message: message, loading: true });
+}
+
+function updateCustomAlert(tabId, message) {
+    chrome.tabs.sendMessage(tabId, { type: 'customAlert', message: message, loading: false });
 }
 
 function injectConsoleLog(tabId, message) {

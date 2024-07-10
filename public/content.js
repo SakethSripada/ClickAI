@@ -2,15 +2,16 @@ console.log('Content script loaded');
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'customAlert') {
-        showCustomAlert(request.message);
+        if (request.loading) {
+            showLoadingAlert(request.message);
+        } else {
+            updateAlertMessage(request.message);
+        }
     }
 });
 
-function showCustomAlert(message) {
-    const existingAlert = document.querySelector('.custom-alert-box');
-    if (existingAlert) {
-        existingAlert.remove();
-    }
+function showLoadingAlert(message) {
+    removeExistingAlert();
 
     const alertBox = document.createElement('div');
     alertBox.className = 'custom-alert-box';
@@ -18,20 +19,11 @@ function showCustomAlert(message) {
     const alertMessage = document.createElement('p');
     alertMessage.innerText = message;
 
-    const closeButton = document.createElement('button');
-    closeButton.innerText = 'Close';
-    closeButton.onclick = () => alertBox.remove();
-
-    const openChatButton = document.createElement('button');
-    openChatButton.innerText = 'Open Chat';
-    openChatButton.onclick = () => {
-        chrome.runtime.sendMessage({ type: 'openChat', message });
-        alertBox.remove();
-    };
+    const loadingAnimation = document.createElement('div');
+    loadingAnimation.className = 'loading-animation';
 
     alertBox.appendChild(alertMessage);
-    alertBox.appendChild(closeButton);
-    alertBox.appendChild(openChatButton);
+    alertBox.appendChild(loadingAnimation);
     document.body.appendChild(alertBox);
 
     const style = document.createElement('style');
@@ -59,6 +51,19 @@ function showCustomAlert(message) {
         font-size: 16px;
         color: #000;
       }
+      .loading-animation {
+        border: 4px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 4px solid #007BFF;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+        margin: 10px auto;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
       .custom-alert-box button {
         padding: 10px 20px;
         font-size: 14px;
@@ -76,8 +81,42 @@ function showCustomAlert(message) {
     document.head.appendChild(style);
 
     document.addEventListener('click', (event) => {
-        if (!alertBox.contains(event.target) && !closeButton.contains(event.target)) {
+        if (!alertBox.contains(event.target)) {
             alertBox.remove();
         }
     }, { once: true });
+}
+
+function updateAlertMessage(message) {
+    const alertBox = document.querySelector('.custom-alert-box');
+    if (alertBox) {
+        const alertMessage = alertBox.querySelector('p');
+        alertMessage.innerText = message;
+
+        const loadingAnimation = alertBox.querySelector('.loading-animation');
+        if (loadingAnimation) {
+            loadingAnimation.remove();
+        }
+
+        const closeButton = document.createElement('button');
+        closeButton.innerText = 'Close';
+        closeButton.onclick = () => alertBox.remove();
+
+        const openChatButton = document.createElement('button');
+        openChatButton.innerText = 'Open Chat';
+        openChatButton.onclick = () => {
+            chrome.runtime.sendMessage({ type: 'openChat', message });
+            alertBox.remove();
+        };
+
+        alertBox.appendChild(closeButton);
+        alertBox.appendChild(openChatButton);
+    }
+}
+
+function removeExistingAlert() {
+    const existingAlert = document.querySelector('.custom-alert-box');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
 }
