@@ -22,8 +22,16 @@ function showCustomAlert(message) {
     closeButton.innerText = 'Close';
     closeButton.onclick = () => alertBox.remove();
 
+    const openChatButton = document.createElement('button');
+    openChatButton.innerText = 'Open Chat';
+    openChatButton.onclick = () => {
+        chrome.runtime.sendMessage({ type: 'openChat', message });
+        alertBox.remove();
+    };
+
     alertBox.appendChild(alertMessage);
     alertBox.appendChild(closeButton);
+    alertBox.appendChild(openChatButton);
     document.body.appendChild(alertBox);
 
     const style = document.createElement('style');
@@ -41,12 +49,12 @@ function showCustomAlert(message) {
         border-radius: 10px;
         max-width: 80%;
         text-align: center;
-        color: #000; 
+        color: #000;
       }
       .custom-alert-box p {
         margin: 0 0 10px;
         font-size: 16px;
-        color: #000; 
+        color: #000;
       }
       .custom-alert-box button {
         padding: 10px 20px;
@@ -56,6 +64,7 @@ function showCustomAlert(message) {
         color: #fff;
         cursor: pointer;
         border-radius: 5px;
+        margin: 5px;
       }
       .custom-alert-box button:hover {
         background-color: #0056b3;

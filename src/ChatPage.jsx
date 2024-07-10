@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import styled from 'styled-components';
 import {
@@ -111,6 +111,18 @@ function ChatPage() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+
+  useEffect(() => {
+    chrome.runtime.sendMessage({ type: 'popupOpened' });
+
+    chrome.storage.local.get('aiMessage', (data) => {
+      if (data.aiMessage) {
+        const aiMessage = { sender: 'assistant', text: data.aiMessage, isContinued: false };
+        setMessages((prevMessages) => [...prevMessages, aiMessage]);
+        chrome.storage.local.remove('aiMessage');
+      }
+    });
+  }, []);
 
   const handleSendMessage = async () => {
     if (!input.trim()) return;

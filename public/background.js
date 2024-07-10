@@ -14,6 +14,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
             sendTextToAI(tab.id, selectedText, (response) => {
                 injectConsoleLog(tab.id, "AI Response: " + response);
                 displayCustomAlert(tab.id, `AI Response: ${response}`);
+                chrome.runtime.sendMessage({ type: 'openChat', message: response });
             });
         } else {
             chrome.scripting.executeScript({
@@ -26,6 +27,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                     sendTextToAI(tab.id, selectedText, (response) => {
                         injectConsoleLog(tab.id, "AI Response: " + response);
                         displayCustomAlert(tab.id, `AI Response: ${response}`);
+                        chrome.runtime.sendMessage({ type: 'openChat', message: response });
                     });
                 } else {
                     injectConsoleLog(tab.id, 'Error: No text selected');
@@ -77,4 +79,27 @@ function injectConsoleLog(tabId, message) {
         func: (msg) => console.log(msg),
         args: [message]
     });
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.type === 'openChat') {
+        chrome.storage.local.set({ aiMessage: request.message }, () => {
+            highlightExtensionIcon();
+        });
+    }
+});
+
+function highlightExtensionIcon() {
+    chrome.action.setBadgeText({ text: '!' });
+    chrome.action.setBadgeBackgroundColor({ color: '#FF0000' });
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.type === 'popupOpened') {
+        clearBadge();
+    }
+});
+
+function clearBadge() {
+    chrome.action.setBadgeText({ text: '' });
 }
