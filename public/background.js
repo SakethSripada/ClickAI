@@ -73,15 +73,9 @@ function handleCaptureText(info, tab) {
 }
 
 function promptForAdditionalText(tabId, selectedText, callback) {
-    chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        func: () => {
-            const additionalText = prompt('Enter additional prompt:');
-            return additionalText;
-        }
-    }, (results) => {
-        if (results && results[0] && results[0].result !== null) {
-            const additionalText = results[0].result;
+    chrome.tabs.sendMessage(tabId, { type: 'showPrompt', selectedText: selectedText }, (response) => {
+        if (response && response.additionalText !== undefined) {
+            const additionalText = response.additionalText;
             const combinedText = additionalText ? `${additionalText} ${selectedText}` : selectedText;
             callback(combinedText);
         } else {
