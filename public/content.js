@@ -22,11 +22,15 @@ function showLoadingAlert(message) {
     const alertMessage = document.createElement('p');
     alertMessage.innerText = message;
 
+    const loadingContainer = document.createElement('div');
+    loadingContainer.className = 'loading-container';
+
     const loadingAnimation = document.createElement('div');
     loadingAnimation.className = 'loading-animation';
 
+    loadingContainer.appendChild(loadingAnimation);
     alertBox.appendChild(alertMessage);
-    alertBox.appendChild(loadingAnimation);
+    alertBox.appendChild(loadingContainer);
     document.body.appendChild(alertBox);
 
     const style = document.createElement('style');
@@ -54,6 +58,12 @@ function showLoadingAlert(message) {
         font-size: 16px;
         color: #000;
       }
+      .loading-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 50px;
+      }
       .loading-animation {
         border: 4px solid #f3f3f3;
         border-radius: 50%;
@@ -61,7 +71,6 @@ function showLoadingAlert(message) {
         width: 20px;
         height: 20px;
         animation: spin 1s linear infinite;
-        margin: 10px auto;
       }
       @keyframes spin {
         0% { transform: rotate(0deg); }
@@ -124,11 +133,22 @@ function showPrompt(selectedText, sendResponse) {
     promptBox.className = 'custom-prompt-box';
 
     const promptMessage = document.createElement('p');
-    promptMessage.innerText = `Add additional prompt for: "${selectedText}"`;
+    promptMessage.innerText = `Add additional prompt for:`;
+
+    const selectedTextContainer = document.createElement('div');
+    selectedTextContainer.className = 'selected-text-container';
+    selectedTextContainer.innerText = selectedText;
 
     const inputField = document.createElement('input');
     inputField.type = 'text';
     inputField.className = 'custom-prompt-input';
+
+    inputField.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            sendResponse({ additionalText: inputField.value });
+            promptBox.remove();
+        }
+    });
 
     const submitButton = document.createElement('button');
     submitButton.innerText = 'Submit';
@@ -138,6 +158,7 @@ function showPrompt(selectedText, sendResponse) {
     };
 
     promptBox.appendChild(promptMessage);
+    promptBox.appendChild(selectedTextContainer);
     promptBox.appendChild(inputField);
     promptBox.appendChild(submitButton);
     document.body.appendChild(promptBox);
@@ -167,13 +188,22 @@ function showPrompt(selectedText, sendResponse) {
         font-size: 16px;
         color: #000;
       }
+      .selected-text-container {
+        max-height: 100px;
+        overflow-y: auto;
+        margin-bottom: 10px;
+        padding: 10px;
+        background-color: #f9f9f9;
+        text-align: left;
+        white-space: pre-wrap;
+      }
       .custom-prompt-input {
-        width: 100%;
+        width: calc(100% - 20px);
         padding: 10px;
         font-size: 14px;
         margin-bottom: 10px;
         border-radius: 5px;
-        border: 1px solid #000;
+        border: 1px solid #ccc;
       }
       .custom-prompt-box button {
         padding: 10px 20px;
