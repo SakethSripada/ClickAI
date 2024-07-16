@@ -1,5 +1,4 @@
 import React from 'react';
-import { createRoot } from 'react-dom/client';
 import LoadingAlert from '../src/LoadingAlert';
 import PromptBox from '../src/PromptBox';
 
@@ -24,14 +23,14 @@ function renderLoadingAlert(message) {
   document.body.appendChild(alertBox);
 
   const root = createRoot(alertBox);
-  root.render(<LoadingAlert message={message} />);
+  root.render(<LoadingAlert message={message} loading={true} />);
 }
 
 function renderUpdateAlertMessage(message) {
   const alertBox = document.querySelector('#react-root');
   if (alertBox) {
     const root = createRoot(alertBox);
-    root.render(<LoadingAlert message={message} />);
+    root.render(<LoadingAlert message={message} loading={false} />);
   }
 }
 

@@ -43,6 +43,7 @@ module.exports = {
     }),
     new webpack.ProvidePlugin({
       "React": "react",
+      createRoot: ['react-dom/client', 'createRoot'],
     })
   ],
   mode: 'production',

@@ -4,6 +4,15 @@ const PromptBox = ({ selectedText, onSubmit }) => {
   const [additionalText, setAdditionalText] = useState('');
 
   const styles = {
+    overlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      zIndex: 9999,
+    },
     promptBox: {
       position: 'fixed',
       top: '30%',
@@ -54,23 +63,72 @@ const PromptBox = ({ selectedText, onSubmit }) => {
       borderRadius: '5px',
       margin: '5px',
     },
+    closeButton: {
+      padding: '10px 20px',
+      fontSize: '14px',
+      border: 'none',
+      backgroundColor: '#007BFF',
+      color: '#fff',
+      cursor: 'pointer',
+      borderRadius: '5px',
+      marginTop: '10px',
+    },
+    buttonHover: {
+      backgroundColor: '#0056b3',
+    },
   };
 
   const handleSubmit = () => {
     onSubmit(additionalText);
   };
 
+  const handleClose = (e) => {
+    e.stopPropagation();
+    const existingAlert = document.querySelector('#react-root');
+    if (existingAlert) {
+      setTimeout(() => {
+        const root = createRoot(existingAlert);
+        root.unmount();
+        document.body.removeChild(existingAlert);
+      }, 100);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit();
+    }
+  };
+
   return (
-    <div style={styles.promptBox}>
-      <p style={styles.message}>Add additional prompt for:</p>
-      <div style={styles.selectedTextContainer}>{selectedText}</div>
-      <input
-        type="text"
-        style={styles.input}
-        value={additionalText}
-        onChange={(e) => setAdditionalText(e.target.value)}
-      />
-      <button style={styles.button} onClick={handleSubmit}>Submit</button>
+    <div style={styles.overlay} onClick={handleClose}>
+      <div style={styles.promptBox} onClick={(e) => e.stopPropagation()}>
+        <p style={styles.message}>Add additional prompt for:</p>
+        <div style={styles.selectedTextContainer}>{selectedText}</div>
+        <input
+          type="text"
+          style={styles.input}
+          value={additionalText}
+          onChange={(e) => setAdditionalText(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+        <button
+          style={styles.button}
+          onClick={handleSubmit}
+          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor)}
+          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.button.backgroundColor)}
+        >
+          Submit
+        </button>
+        <button
+          style={styles.closeButton}
+          onClick={handleClose}
+          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor)}
+          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.closeButton.backgroundColor)}
+        >
+          Close
+        </button>
+      </div>
     </div>
   );
 };
