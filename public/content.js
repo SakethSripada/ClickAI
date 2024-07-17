@@ -1,6 +1,7 @@
 import React from 'react';
-import LoadingAlert from '../src/LoadingAlert';
-import PromptBox from '../src/PromptBox';
+import LoadingAlert from '../src/LoadingAlert'; 
+import AIResponseAlert from '../src/AIResponseAlert';
+import PromptBox from '../src/PromptBox'; 
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'customAlert') {
@@ -30,7 +31,7 @@ function renderUpdateAlertMessage(message) {
   const alertBox = document.querySelector('#react-root');
   if (alertBox) {
     const root = createRoot(alertBox);
-    root.render(<LoadingAlert message={message} loading={false} />);
+    root.render(<AIResponseAlert message={message} />);
   }
 }
 
