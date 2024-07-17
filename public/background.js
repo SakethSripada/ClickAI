@@ -10,6 +10,12 @@ chrome.runtime.onInstalled.addListener(() => {
         title: "Add prompt and ask ClickAI about '%s'",
         contexts: ["selection"]
     });
+
+    chrome.contextMenus.create({
+        id: "extractTextFromImage",
+        title: "Extract Text and ask ClickAI",
+        contexts: ["image"]
+    });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -37,6 +43,21 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                 }
             });
         }
+    } else if (info.menuItemId === "extractTextFromImage") {
+        const imageUrl = info.srcUrl;
+        chrome.tabs.sendMessage(tab.id, { type: 'extractTextFromImage', imageUrl: imageUrl }, (response) => {
+            if (response && response.extractedText) {
+                console.log("Extracted Text: " + response.extractedText);
+                sendTextToAI(tab.id, response.extractedText, (aiResponse) => {
+                    injectConsoleLog(tab.id, "AI Response: " + aiResponse);
+                    updateCustomAlert(tab.id, `AI Response: ${aiResponse}`);
+                    chrome.runtime.sendMessage({ type: 'openChat', message: aiResponse });
+                });
+            } else {
+                injectConsoleLog(tab.id, 'Error: Failed to extract text from image');
+                displayCustomAlert(tab.id, 'Error: Failed to extract text from image');
+            }
+        });
     }
 });
 
@@ -139,6 +160,10 @@ function injectConsoleLog(tabId, message) {
         func: (msg) => console.log(msg),
         args: [message]
     });
+}
+
+function displayCustomAlert(tabId, message) {
+    chrome.tabs.sendMessage(tabId, { type: 'customAlert', message: message, loading: false });
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
