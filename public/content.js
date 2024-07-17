@@ -1,7 +1,7 @@
 import React from 'react';
 import LoadingAlert from '../src/LoadingAlert'; 
 import AIResponseAlert from '../src/AIResponseAlert';
-import PromptBox from '../src/PromptBox'; 
+import PromptBox from '../src/PromptBox';
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'customAlert') {
@@ -58,4 +58,27 @@ function removeExistingAlert() {
     root.unmount();
     document.body.removeChild(existingAlert);
   }
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'openChat') {
+    chrome.storage.local.set({ aiMessage: request.message }, () => {
+      highlightExtensionIcon();
+    });
+  }
+});
+
+function highlightExtensionIcon() {
+  chrome.action.setBadgeText({ text: 'NEW' });
+  chrome.action.setBadgeBackgroundColor({ color: '#00FF00' });
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'popupOpened') {
+    clearBadge();
+  }
+});
+
+function clearBadge() {
+  chrome.action.setBadgeText({ text: '' });
 }

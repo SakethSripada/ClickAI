@@ -35,7 +35,7 @@ const AIResponseAlert = ({ message }) => {
       fontSize: '16px',
       color: '#000',
     },
-    closeButton: {
+    button: {
       padding: '10px 20px',
       fontSize: '14px',
       border: 'none',
@@ -44,6 +44,7 @@ const AIResponseAlert = ({ message }) => {
       cursor: 'pointer',
       borderRadius: '5px',
       marginTop: '10px',
+      margin: '5px',
     },
     buttonHover: {
       backgroundColor: '#0056b3',
@@ -62,17 +63,31 @@ const AIResponseAlert = ({ message }) => {
     }
   };
 
+  const handleOpenInChat = (e) => {
+    e.stopPropagation();
+    chrome.runtime.sendMessage({ type: 'openChat', message: message });
+    handleClose(e);
+  };
+
   return (
     <div style={styles.overlay} onClick={handleClose}>
       <div style={styles.alertBox} onClick={(e) => e.stopPropagation()}>
         <p style={styles.message}>{message}</p>
         <button
-          style={styles.closeButton}
+          style={styles.button}
           onClick={handleClose}
           onMouseOver={(e) => (e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor)}
-          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.closeButton.backgroundColor)}
+          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.button.backgroundColor)}
         >
           Close
+        </button>
+        <button
+          style={styles.button}
+          onClick={handleOpenInChat}
+          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor)}
+          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.button.backgroundColor)}
+        >
+          Open In Chat
         </button>
       </div>
     </div>
