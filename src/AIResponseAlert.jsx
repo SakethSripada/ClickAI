@@ -1,6 +1,9 @@
 import React from 'react';
-import { Box, Typography, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
-import { FaRegCircle } from 'react-icons/fa';
+import { createRoot } from 'react-dom/client';
+import { Box, Typography, List, ListItem, ListItemText, ListItemIcon, IconButton } from '@mui/material';
+import { FaRegCircle, FaCopy } from 'react-icons/fa';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const AIResponseAlert = ({ message }) => {
   const styles = {
@@ -39,7 +42,7 @@ const AIResponseAlert = ({ message }) => {
     },
     button: {
       padding: '10px 20px',
-      fontSize: '14px', 
+      fontSize: '14px',
       border: 'none',
       backgroundColor: '#007BFF',
       color: '#fff',
@@ -71,57 +74,76 @@ const AIResponseAlert = ({ message }) => {
     handleClose(e);
   };
 
-  const renderMessageContent = (text) => {
-    const parts = text.split(/(\d+\.\s.*(?:\n\s*\d+\.\s.*)*)|(-\s.*(?:\n\s*-\s.*)*)/g);
+  const handleCopy = (text) => {
+    navigator.clipboard.writeText(text);
+    alert('Text copied to clipboard');
+  };
 
-    return parts
-      .filter((part) => part && part.trim()) 
-      .map((part, index) => {
-        if (part.match(/^\d+\.\s.*/)) {
-          const listItems = part.split('\n').map((item, i) => (
-            <ListItem key={i} sx={{ paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
-              <ListItemIcon sx={{ minWidth: '30px' }}>
-                <Typography variant="body2" color="textSecondary" sx={{ fontSize: '16px' }}>{item.match(/^\d+/)[0]}</Typography>
-              </ListItemIcon>
-              <ListItemText 
-                primary={<Typography sx={{ fontSize: '16px' }}>{item.replace(/^\d+\.\s/, '')}</Typography>} 
-              />
-            </ListItem>
-          ));
-          return (
-            <List key={index} sx={{ padding: 0 }}>
-              {listItems}
-            </List>
-          );
-        } else if (part.match(/^-\s.*/)) {
-          const listItems = part.split('\n').map((item, i) => (
-            <ListItem key={i} sx={{ paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
-              <ListItemIcon sx={{ minWidth: '30px' }}>
-                <FaRegCircle style={{ color: '#007bff' }} />
-              </ListItemIcon>
-              <ListItemText 
-                primary={<Typography sx={{ fontSize: '16px' }}>{item.replace(/^- /, '')}</Typography>} 
-              />
-            </ListItem>
-          ));
-          return (
-            <List key={index} sx={{ padding: 0 }}>
-              {listItems}
-            </List>
-          );
-        } else {
-          const mathSteps = part.split('\n').map((line, i) => (
-            <Typography key={i} sx={{ display: 'block', marginBottom: '4px', fontSize: '16px' }}>
-              {line}
-            </Typography>
-          ));
-          return (
-            <Box key={index}>
-              {mathSteps}
-            </Box>
-          );
-        }
-      });
+  const renderMessageContent = (text) => {
+    const parts = text.split(/(```[\s\S]*?```|```[\s\S]*?$)/g);
+
+    return parts.map((part, index) => {
+      if (part.startsWith('```')) {
+        const codeContent = part.replace(/```(\w*)\n|```/g, '').trim();
+        return (
+          <Box key={index} sx={{ position: 'relative', mb: 2 }}>
+            <SyntaxHighlighter language="javascript" style={oneDark}>
+              {codeContent}
+            </SyntaxHighlighter>
+            <IconButton
+              onClick={() => handleCopy(codeContent)}
+              size="small"
+              sx={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                backgroundColor: '#3e3e3e',
+                '&:hover': {
+                  backgroundColor: '#4e4e4e',
+                },
+              }}
+            >
+              <FaCopy style={{ color: '#007bff' }} />
+            </IconButton>
+          </Box>
+        );
+      } else if (part.match(/^-\s.*/)) {
+        const listItems = part.split('\n').map((item, i) => (
+          <ListItem key={i} sx={{ color: '#000', paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
+            <ListItemIcon sx={{ minWidth: '30px' }}>
+              <FaRegCircle style={{ color: '#007bff' }} />
+            </ListItemIcon>
+            <ListItemText primary={<Typography sx={{ fontSize: '16px' }}>{item.replace(/^- /, '')}</Typography>} />
+          </ListItem>
+        ));
+        return (
+          <List key={index} sx={{ padding: 0 }}>
+            {listItems}
+          </List>
+        );
+      } else if (part.match(/^\d+\.\s.*/)) {
+        const listItems = part.split('\n').map((item, i) => (
+          <ListItem key={i} sx={{ color: '#000', paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
+            <ListItemIcon sx={{ minWidth: '30px' }}>
+              <Typography variant="body2" color="textSecondary" sx={{ fontSize: '16px' }}>{item.match(/^\d+/)[0]}</Typography>
+            </ListItemIcon>
+            <ListItemText primary={<Typography sx={{ fontSize: '16px' }}>{item.replace(/^\d+\.\s/, '')}</Typography>} />
+          </ListItem>
+        ));
+        return (
+          <List key={index} sx={{ padding: 0 }}>
+            {listItems}
+          </List>
+        );
+      } else {
+        const paragraphs = part.split('\n').map((line, i) => (
+          <Typography key={i} sx={{ color: '#000', display: 'block', marginBottom: '4px', fontSize: '16px' }}>
+            {line}
+          </Typography>
+        ));
+        return paragraphs;
+      }
+    });
   };
 
   return (
