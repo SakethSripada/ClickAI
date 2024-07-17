@@ -4,6 +4,7 @@ import { Box, Typography, List, ListItem, ListItemText, ListItemIcon, IconButton
 import { FaRegCircle, FaCopy } from 'react-icons/fa';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import hljs from 'highlight.js';
 
 const AIResponseAlert = ({ message }) => {
   const styles = {
@@ -33,11 +34,11 @@ const AIResponseAlert = ({ message }) => {
       overflowX: 'hidden',
       textAlign: 'center',
       color: '#000',
-      fontSize: '16px', 
+      fontSize: '16px',
     },
     message: {
       margin: '0 0 10px',
-      fontSize: '16px', 
+      fontSize: '16px',
       color: '#000',
     },
     button: {
@@ -79,19 +80,69 @@ const AIResponseAlert = ({ message }) => {
     alert('Text copied to clipboard');
   };
 
+  const detectCodeBlocks = (text) => {
+    const detectedBlocks = [];
+    const regex = /(```[\s\S]*?```|```[\s\S]*?$)/g;
+    const parts = text.split(regex);
+    if (parts.length > 1) {
+      return parts.map((part, index) => {
+        if (part.startsWith('```')) {
+          const match = part.match(/```(\w*)\n([\s\S]*)\n```/);
+          const language = match ? match[1] : 'text';
+          const codeContent = match ? match[2].trim() : part.replace(/```/g, '').trim();
+          return { type: 'code', content: codeContent, language };
+        } else {
+          return { type: 'text', content: part };
+        }
+      });
+    }
+
+    const lines = text.split('\n');
+    let buffer = '';
+    let isCode = false;
+
+    lines.forEach((line, index) => {
+      const detection = hljs.highlightAuto(line);
+      if (detection.language) {
+        if (!isCode) {
+          if (buffer) {
+            detectedBlocks.push({ type: 'text', content: buffer });
+            buffer = '';
+          }
+          isCode = true;
+        }
+        buffer += line + '\n';
+      } else {
+        if (isCode) {
+          if (buffer) {
+            detectedBlocks.push({ type: 'code', content: buffer.trim(), language: detection.language });
+            buffer = '';
+          }
+          isCode = false;
+        }
+        buffer += line + '\n';
+      }
+
+      if (index === lines.length - 1 && buffer) {
+        detectedBlocks.push({ type: isCode ? 'code' : 'text', content: buffer.trim(), language: isCode ? detection.language : 'text' });
+      }
+    });
+
+    return detectedBlocks;
+  };
+
   const renderMessageContent = (text) => {
-    const parts = text.split(/(```[\s\S]*?```|```[\s\S]*?$)/g);
+    const parts = detectCodeBlocks(text);
 
     return parts.map((part, index) => {
-      if (part.startsWith('```')) {
-        const codeContent = part.replace(/```(\w*)\n|```/g, '').trim();
+      if (part.type === 'code') {
         return (
           <Box key={index} sx={{ position: 'relative', mb: 2 }}>
-            <SyntaxHighlighter language="javascript" style={oneDark}>
-              {codeContent}
+            <SyntaxHighlighter language={part.language} style={oneDark}>
+              {part.content}
             </SyntaxHighlighter>
             <IconButton
-              onClick={() => handleCopy(codeContent)}
+              onClick={() => handleCopy(part.content)}
               size="small"
               sx={{
                 position: 'absolute',
@@ -107,8 +158,8 @@ const AIResponseAlert = ({ message }) => {
             </IconButton>
           </Box>
         );
-      } else if (part.match(/^-\s.*/)) {
-        const listItems = part.split('\n').map((item, i) => (
+      } else if (part.content.match(/^-\s.*/)) {
+        const listItems = part.content.split('\n').map((item, i) => (
           <ListItem key={i} sx={{ color: '#000', paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
             <ListItemIcon sx={{ minWidth: '30px' }}>
               <FaRegCircle style={{ color: '#007bff' }} />
@@ -121,8 +172,8 @@ const AIResponseAlert = ({ message }) => {
             {listItems}
           </List>
         );
-      } else if (part.match(/^\d+\.\s.*/)) {
-        const listItems = part.split('\n').map((item, i) => (
+      } else if (part.content.match(/^\d+\.\s.*/)) {
+        const listItems = part.content.split('\n').map((item, i) => (
           <ListItem key={i} sx={{ color: '#000', paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
             <ListItemIcon sx={{ minWidth: '30px' }}>
               <Typography variant="body2" color="textSecondary" sx={{ fontSize: '16px' }}>{item.match(/^\d+/)[0]}</Typography>
@@ -136,12 +187,12 @@ const AIResponseAlert = ({ message }) => {
           </List>
         );
       } else {
-        const paragraphs = part.split('\n').map((line, i) => (
+        const paragraphs = part.content.split('\n').map((line, i) => (
           <Typography key={i} sx={{ color: '#000', display: 'block', marginBottom: '4px', fontSize: '16px' }}>
             {line}
           </Typography>
         ));
-        return paragraphs;
+        return <Box key={index} sx={{ mb: 2 }}>{paragraphs}</Box>;
       }
     });
   };
