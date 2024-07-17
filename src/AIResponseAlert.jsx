@@ -1,5 +1,6 @@
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import { Box, Typography, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
+import { FaRegCircle } from 'react-icons/fa';
 
 const AIResponseAlert = ({ message }) => {
   const styles = {
@@ -29,15 +30,16 @@ const AIResponseAlert = ({ message }) => {
       overflowX: 'hidden',
       textAlign: 'center',
       color: '#000',
+      fontSize: '16px', 
     },
     message: {
       margin: '0 0 10px',
-      fontSize: '16px',
+      fontSize: '16px', 
       color: '#000',
     },
     button: {
       padding: '10px 20px',
-      fontSize: '14px',
+      fontSize: '14px', 
       border: 'none',
       backgroundColor: '#007BFF',
       color: '#fff',
@@ -59,7 +61,7 @@ const AIResponseAlert = ({ message }) => {
         const root = createRoot(existingAlert);
         root.unmount();
         document.body.removeChild(existingAlert);
-      }, 100); 
+      }, 100);
     }
   };
 
@@ -69,10 +71,63 @@ const AIResponseAlert = ({ message }) => {
     handleClose(e);
   };
 
+  const renderMessageContent = (text) => {
+    const parts = text.split(/(\d+\.\s.*(?:\n\s*\d+\.\s.*)*)|(-\s.*(?:\n\s*-\s.*)*)/g);
+
+    return parts
+      .filter((part) => part && part.trim()) 
+      .map((part, index) => {
+        if (part.match(/^\d+\.\s.*/)) {
+          const listItems = part.split('\n').map((item, i) => (
+            <ListItem key={i} sx={{ paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
+              <ListItemIcon sx={{ minWidth: '30px' }}>
+                <Typography variant="body2" color="textSecondary" sx={{ fontSize: '16px' }}>{item.match(/^\d+/)[0]}</Typography>
+              </ListItemIcon>
+              <ListItemText 
+                primary={<Typography sx={{ fontSize: '16px' }}>{item.replace(/^\d+\.\s/, '')}</Typography>} 
+              />
+            </ListItem>
+          ));
+          return (
+            <List key={index} sx={{ padding: 0 }}>
+              {listItems}
+            </List>
+          );
+        } else if (part.match(/^-\s.*/)) {
+          const listItems = part.split('\n').map((item, i) => (
+            <ListItem key={i} sx={{ paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
+              <ListItemIcon sx={{ minWidth: '30px' }}>
+                <FaRegCircle style={{ color: '#007bff' }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary={<Typography sx={{ fontSize: '16px' }}>{item.replace(/^- /, '')}</Typography>} 
+              />
+            </ListItem>
+          ));
+          return (
+            <List key={index} sx={{ padding: 0 }}>
+              {listItems}
+            </List>
+          );
+        } else {
+          const mathSteps = part.split('\n').map((line, i) => (
+            <Typography key={i} sx={{ display: 'block', marginBottom: '4px', fontSize: '16px' }}>
+              {line}
+            </Typography>
+          ));
+          return (
+            <Box key={index}>
+              {mathSteps}
+            </Box>
+          );
+        }
+      });
+  };
+
   return (
     <div style={styles.overlay} onClick={handleClose}>
       <div style={styles.alertBox} onClick={(e) => e.stopPropagation()}>
-        <p style={styles.message}>{message}</p>
+        <Box style={styles.message}>{renderMessageContent(message)}</Box>
         <button
           style={styles.button}
           onClick={handleClose}
