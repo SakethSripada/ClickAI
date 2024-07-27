@@ -4,6 +4,7 @@ import { Box, Typography, List, ListItem, ListItemText, ListItemIcon, IconButton
 import { FaRegCircle, FaCopy } from 'react-icons/fa';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { marked } from 'marked';
 
 const AIResponseAlert = ({ message }) => {
   const styles = {
@@ -22,22 +23,22 @@ const AIResponseAlert = ({ message }) => {
       left: '50%',
       transform: 'translate(-50%, -50%)',
       backgroundColor: '#fff',
-      border: '2px solid #000',
+      border: '2px solid #ccc',
       padding: '20px',
       zIndex: 10000,
-      boxShadow: '0px 0px 10px rgba(0, 0, 0, 0.5)',
+      boxShadow: '0px 0px 10px rgba(0, 0, 0, 0.3)',
       borderRadius: '10px',
       maxWidth: '80%',
       maxHeight: '60%',
       overflowY: 'auto',
       overflowX: 'hidden',
-      textAlign: 'center',
+      textAlign: 'left',
       color: '#000',
-      fontSize: '16px', 
+      fontSize: '16px',
     },
     message: {
       margin: '0 0 10px',
-      fontSize: '16px', 
+      fontSize: '16px',
       color: '#000',
     },
     button: {
@@ -53,6 +54,22 @@ const AIResponseAlert = ({ message }) => {
     },
     buttonHover: {
       backgroundColor: '#0056b3',
+    },
+    listItem: {
+      display: 'flex',
+      alignItems: 'center',
+      padding: '5px 0',
+    },
+    listItemIcon: {
+      minWidth: '25px',
+      color: '#007bff',
+    },
+    listItemText: {
+      fontSize: '16px',
+    },
+    number: {
+      fontWeight: 'bold',
+      marginRight: '5px',
     },
   };
 
@@ -109,11 +126,11 @@ const AIResponseAlert = ({ message }) => {
         );
       } else if (part.match(/^-\s.*/)) {
         const listItems = part.split('\n').map((item, i) => (
-          <ListItem key={i} sx={{ color: '#000', paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
-            <ListItemIcon sx={{ minWidth: '30px' }}>
-              <FaRegCircle style={{ color: '#007bff' }} />
+          <ListItem key={i} sx={styles.listItem}>
+            <ListItemIcon sx={styles.listItemIcon}>
+              <FaRegCircle />
             </ListItemIcon>
-            <ListItemText primary={<Typography sx={{ fontSize: '16px' }}>{item.replace(/^- /, '')}</Typography>} />
+            <ListItemText primary={<Typography sx={styles.listItemText}>{item.replace(/^- /, '')}</Typography>} />
           </ListItem>
         ));
         return (
@@ -123,11 +140,9 @@ const AIResponseAlert = ({ message }) => {
         );
       } else if (part.match(/^\d+\.\s.*/)) {
         const listItems = part.split('\n').map((item, i) => (
-          <ListItem key={i} sx={{ color: '#000', paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
-            <ListItemIcon sx={{ minWidth: '30px' }}>
-              <Typography variant="body2" color="textSecondary" sx={{ fontSize: '16px' }}>{item.match(/^\d+/)[0]}</Typography>
-            </ListItemIcon>
-            <ListItemText primary={<Typography sx={{ fontSize: '16px' }}>{item.replace(/^\d+\.\s/, '')}</Typography>} />
+          <ListItem key={i} sx={styles.listItem}>
+            <Typography sx={styles.number}>{item.match(/^\d+/)[0]}.</Typography>
+            <ListItemText primary={<Typography sx={styles.listItemText}>{item.replace(/^\d+\.\s/, '')}</Typography>} />
           </ListItem>
         ));
         return (
@@ -136,12 +151,10 @@ const AIResponseAlert = ({ message }) => {
           </List>
         );
       } else {
-        const paragraphs = part.split('\n').map((line, i) => (
-          <Typography key={i} sx={{ color: '#000', display: 'block', marginBottom: '4px', fontSize: '16px' }}>
-            {line}
-          </Typography>
-        ));
-        return paragraphs;
+        const rawMarkup = marked(part);
+        return (
+          <div key={index} dangerouslySetInnerHTML={{ __html: rawMarkup }} />
+        );
       }
     });
   };
