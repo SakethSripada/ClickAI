@@ -19,6 +19,7 @@ import { FaCopy, FaRedo, FaCircle, FaRegCircle } from 'react-icons/fa';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { marked } from 'marked';
 
 const theme = createTheme({
   palette: {
@@ -194,7 +195,7 @@ function ChatPage() {
       if (part.startsWith('```')) {
         const codeContent = part.replace(/```(\w*)\n|```/g, '').trim();
         return (
-          <Box key={index} sx={{ position: 'relative' }}>
+          <Box key={index} sx={{ position: 'relative', marginBottom: '0.2rem' }}>
             <SyntaxHighlighter language="javascript" style={oneDark}>
               {codeContent}
             </SyntaxHighlighter>
@@ -217,7 +218,7 @@ function ChatPage() {
         );
       } else if (part.match(/^-\s.*/)) {
         const listItems = part.split('\n').map((item, i) => (
-          <ListItem key={i} sx={{ color: '#fff', paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
+          <ListItem key={i} sx={{ color: '#fff', padding: '1px 0' }}>
             <ListItemIcon sx={{ minWidth: '30px' }}>
               <FaRegCircle style={{ color: '#007bff' }} />
             </ListItemIcon>
@@ -225,13 +226,13 @@ function ChatPage() {
           </ListItem>
         ));
         return (
-          <List key={index} sx={{ padding: 0 }}>
+          <List key={index} sx={{ padding: 0, marginBottom: '0.2rem' }}>
             {listItems}
           </List>
         );
       } else if (part.match(/^\d+\.\s.*/)) {
         const listItems = part.split('\n').map((item, i) => (
-          <ListItem key={i} sx={{ color: '#fff', paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px' }}>
+          <ListItem key={i} sx={{ color: '#fff', padding: '1px 0' }}>
             <ListItemIcon sx={{ minWidth: '30px' }}>
               <Typography variant="body2" color="textSecondary">{item.match(/^\d+/)[0]}</Typography>
             </ListItemIcon>
@@ -239,17 +240,20 @@ function ChatPage() {
           </ListItem>
         ));
         return (
-          <List key={index} sx={{ padding: 0 }}>
+          <List key={index} sx={{ padding: 0, marginBottom: '0.2rem' }}>
             {listItems}
           </List>
         );
       } else {
-        const mathSteps = part.split('\n').map((line, i) => (
-          <Typography key={i} sx={{ color: '#fff', display: 'block', marginBottom: '4px' }}>
-            {line}
-          </Typography>
-        ));
-        return mathSteps;
+        const rawMarkup = marked(part);
+        return (
+          <Typography
+            key={index}
+            variant="body1"
+            sx={{ color: '#fff', marginBottom: '0.2rem' }}
+            dangerouslySetInnerHTML={{ __html: rawMarkup }}
+          />
+        );
       }
     });
   };
@@ -260,10 +264,10 @@ function ChatPage() {
         <Paper sx={{ flex: 1, padding: '10px', overflowY: 'auto', backgroundColor: theme.palette.background.default }}>
           <Box>
             {messages.map((msg, index) => (
-              <Box key={index} sx={{ mb: 2, textAlign: msg.sender === 'user' ? 'right' : 'left' }}>
+              <Box key={index} sx={{ mb: 1, textAlign: msg.sender === 'user' ? 'right' : 'left' }}>
                 <Paper
                   sx={{
-                    py: 1,
+                    py: 0,
                     px: 2,
                     display: 'inline-block',
                     backgroundColor: msg.sender === 'user' ? '#4e4e4e' : '#3e3e3e',
@@ -278,7 +282,7 @@ function ChatPage() {
                   <Button
                     onClick={handleContinueGeneration}
                     startIcon={<FaRedo />}
-                    sx={{ mt: 1, color: '#007bff' }}
+                    sx={{ mt: 0.2, color: '#007bff' }}
                   >
                     Continue generation
                   </Button>
