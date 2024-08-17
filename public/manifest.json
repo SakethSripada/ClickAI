@@ -30,7 +30,12 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["index.html"],
+      "resources": [
+        "index.html",
+        "tex-chtml.js",
+        "output/chtml/fonts/woff-v2/*.woff",
+        "sandbox.html"
+      ],
       "matches": ["<all_urls>"]
     }
   ]

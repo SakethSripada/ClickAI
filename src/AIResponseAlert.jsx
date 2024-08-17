@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Box, Typography, List, ListItem, ListItemText, ListItemIcon, IconButton } from '@mui/material';
 import { FaRegCircle, FaCopy } from 'react-icons/fa';
@@ -7,6 +7,9 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { marked } from 'marked';
 
 const AIResponseAlert = ({ message }) => {
+  const [containsMath, setContainsMath] = useState(false);
+  const iframeRef = useRef(null);
+
   const styles = {
     overlay: {
       position: 'fixed',
@@ -41,6 +44,11 @@ const AIResponseAlert = ({ message }) => {
       fontSize: '16px',
       color: '#000',
     },
+    buttonContainer: {
+      display: 'flex',
+      justifyContent: 'center',
+      marginTop: '10px',
+    },
     button: {
       padding: '10px 20px',
       fontSize: '14px',
@@ -49,7 +57,6 @@ const AIResponseAlert = ({ message }) => {
       color: '#fff',
       cursor: 'pointer',
       borderRadius: '5px',
-      marginTop: '10px',
       margin: '5px',
     },
     buttonHover: {
@@ -71,7 +78,29 @@ const AIResponseAlert = ({ message }) => {
       fontWeight: 'bold',
       marginRight: '5px',
     },
+    iframe: {
+      width: '100%',
+      height: '300px',
+      border: 'none',
+    },
   };
+
+  useEffect(() => {
+    const mathRegex = /(\$.*?\$|\\\(.*?\\\)|\\\[.*?\\\]|\\begin\{.*?\}.*?\\end\{.*?\})/g;
+    setContainsMath(mathRegex.test(message));
+  }, [message]);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (containsMath && iframe && iframe.contentWindow) {
+      iframe.onload = () => {
+        iframe.contentWindow.postMessage(
+          { type: 'render-math', content: renderMessageContentForMathJax(message) },
+          '*'
+        );
+      };
+    }
+  }, [containsMath, message]);
 
   const handleClose = (e) => {
     e.stopPropagation();
@@ -125,7 +154,7 @@ const AIResponseAlert = ({ message }) => {
           </Box>
         );
       } else if (part.match(/^-\s.*/)) {
-        const listItems = part.split('\n').map((item, i) => (
+        const listItems = part.split('\n').filter(item => item.trim()).map((item, i) => (
           <ListItem key={i} sx={styles.listItem}>
             <ListItemIcon sx={styles.listItemIcon}>
               <FaRegCircle />
@@ -139,7 +168,7 @@ const AIResponseAlert = ({ message }) => {
           </List>
         );
       } else if (part.match(/^\d+\.\s.*/)) {
-        const listItems = part.split('\n').map((item, i) => (
+        const listItems = part.split('\n').filter(item => item.trim()).map((item, i) => (
           <ListItem key={i} sx={styles.listItem}>
             <Typography sx={styles.number}>{item.match(/^\d+/)[0]}.</Typography>
             <ListItemText primary={<Typography sx={styles.listItemText}>{item.replace(/^\d+\.\s/, '')}</Typography>} />
@@ -159,26 +188,59 @@ const AIResponseAlert = ({ message }) => {
     });
   };
 
+  const renderMessageContentForMathJax = (text) => {
+    const parts = text.split(/(```[\s\S]*?```|```[\s\S]*?$)/g);
+
+    return parts.map((part) => {
+      if (part.startsWith('```')) {
+        return `<pre><code>${part.replace(/```(\w*)\n|```/g, '').trim()}</code></pre>`;
+      } else if (part.match(/^-\s.*/)) {
+        const listItems = part.split('\n').filter(item => item.trim()).map((item) => `<li>${item.replace(/^- /, '')}</li>`).join('');
+        return `<ul>${listItems}</ul>`;
+      } else if (part.match(/^\d+\.\s.*/)) {
+        const listItems = part.split('\n').filter(item => item.trim()).map((item) => `<li>${item.replace(/^\d+\.\s/, '')}</li>`).join('');
+        return `<ol>${listItems}</ol>`;
+      } else {
+        const escapedText = part.replace(/\\\((.*?)\\\)/g, '\\($1\\)').replace(/\\\[(.*?)\\\]/g, '\\[$1\\]');
+        return `<p>${escapedText}</p>`;
+      }
+    }).join('');
+  };
+
   return (
     <div style={styles.overlay} onClick={handleClose}>
       <div style={styles.alertBox} onClick={(e) => e.stopPropagation()}>
-        <Box style={styles.message}>{renderMessageContent(message)}</Box>
-        <button
-          style={styles.button}
-          onClick={handleClose}
-          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor)}
-          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.button.backgroundColor)}
-        >
-          Close
-        </button>
-        <button
-          style={styles.button}
-          onClick={handleOpenInChat}
-          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor)}
-          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.button.backgroundColor)}
-        >
-          Open In Chat
-        </button>
+        <Box style={styles.message}>
+          {containsMath ? (
+            <iframe
+              ref={iframeRef}
+              title="MathJax Sandbox"
+              src={chrome.runtime.getURL('sandbox.html')}
+              style={styles.iframe}
+              sandbox="allow-scripts allow-same-origin"
+            />
+          ) : (
+            renderMessageContent(message)
+          )}
+        </Box>
+        <div style={styles.buttonContainer}>
+          <button
+            style={styles.button}
+            onClick={handleClose}
+            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor)}
+            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.button.backgroundColor)}
+          >
+            Close
+          </button>
+          <button
+            style={styles.button}
+            onClick={handleOpenInChat}
+            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor)}
+            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.button.backgroundColor)}
+          >
+            Open In Chat
+          </button>
+        </div>
       </div>
     </div>
   );
