@@ -16,48 +16,23 @@ chrome.runtime.onInstalled.addListener(() => {
         title: "Extract Text and ask ClickAI",
         contexts: ["image"]
     });
+
+    chrome.contextMenus.create({
+        id: "addPromptAndExtractTextFromImage",
+        title: "Add prompt and extract text from image",
+        contexts: ["image"]
+    });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === "captureText") {
         handleCaptureText(info, tab);
     } else if (info.menuItemId === "addPromptAndCaptureText") {
-        if (info.selectionText) {
-            const selectedText = info.selectionText;
-            promptForAdditionalText(tab.id, selectedText, (combinedText) => {
-                handleTextCaptureWithPrompt(tab.id, combinedText);
-            });
-        } else {
-            chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                function: captureHighlightedText
-            }, (results) => {
-                if (results && results[0] && results[0].result) {
-                    const selectedText = results[0].result;
-                    promptForAdditionalText(tab.id, selectedText, (combinedText) => {
-                        handleTextCaptureWithPrompt(tab.id, combinedText);
-                    });
-                } else {
-                    injectConsoleLog(tab.id, 'Error: No text selected');
-                    displayCustomAlert(tab.id, 'Error: No text selected');
-                }
-            });
-        }
+        handleAddPromptAndCaptureText(info, tab);
     } else if (info.menuItemId === "extractTextFromImage") {
-        const imageUrl = info.srcUrl;
-        chrome.tabs.sendMessage(tab.id, { type: 'extractTextFromImage', imageUrl: imageUrl }, (response) => {
-            if (response && response.extractedText) {
-                console.log("Extracted Text: " + response.extractedText);
-                sendTextToAI(tab.id, response.extractedText, (aiResponse) => {
-                    injectConsoleLog(tab.id, "AI Response: " + aiResponse);
-                    updateCustomAlert(tab.id, `AI Response: ${aiResponse}`);
-                    chrome.runtime.sendMessage({ type: 'openChat', message: aiResponse });
-                });
-            } else {
-                injectConsoleLog(tab.id, 'Error: Failed to extract text from image');
-                displayCustomAlert(tab.id, 'Error: Failed to extract text from image');
-            }
-        });
+        handleExtractTextFromImage(info, tab);
+    } else if (info.menuItemId === "addPromptAndExtractTextFromImage") {
+        handleAddPromptAndExtractTextFromImage(info, tab);
     }
 });
 
@@ -91,6 +66,61 @@ function handleCaptureText(info, tab) {
             }
         });
     }
+}
+
+function handleAddPromptAndCaptureText(info, tab) {
+    if (info.selectionText) {
+        const selectedText = info.selectionText;
+        promptForAdditionalText(tab.id, selectedText, (combinedText) => {
+            handleTextCaptureWithPrompt(tab.id, combinedText);
+        });
+    } else {
+        chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            function: captureHighlightedText
+        }, (results) => {
+            if (results && results[0] && results[0].result) {
+                const selectedText = results[0].result;
+                promptForAdditionalText(tab.id, selectedText, (combinedText) => {
+                    handleTextCaptureWithPrompt(tab.id, combinedText);
+                });
+            } else {
+                injectConsoleLog(tab.id, 'Error: No text selected');
+                displayCustomAlert(tab.id, 'Error: No text selected');
+            }
+        });
+    }
+}
+
+function handleExtractTextFromImage(info, tab) {
+    const imageUrl = info.srcUrl;
+    chrome.tabs.sendMessage(tab.id, { type: 'extractTextFromImage', imageUrl: imageUrl }, (response) => {
+        if (response && response.extractedText) {
+            console.log("Extracted Text: " + response.extractedText);
+            sendTextToAI(tab.id, response.extractedText, (aiResponse) => {
+                injectConsoleLog(tab.id, "AI Response: " + aiResponse);
+                updateCustomAlert(tab.id, `AI Response: ${aiResponse}`);
+                chrome.runtime.sendMessage({ type: 'openChat', message: aiResponse });
+            });
+        } else {
+            injectConsoleLog(tab.id, 'Error: Failed to extract text from image');
+            displayCustomAlert(tab.id, 'Error: Failed to extract text from image');
+        }
+    });
+}
+
+function handleAddPromptAndExtractTextFromImage(info, tab) {
+    const imageUrl = info.srcUrl;
+    chrome.tabs.sendMessage(tab.id, { type: 'extractTextFromImage', imageUrl: imageUrl }, (response) => {
+        if (response && response.extractedText) {
+            promptForAdditionalText(tab.id, response.extractedText, (combinedText) => {
+                handleTextCaptureWithPrompt(tab.id, combinedText);
+            });
+        } else {
+            injectConsoleLog(tab.id, 'Error: Failed to extract text from image');
+            displayCustomAlert(tab.id, 'Error: Failed to extract text from image');
+        }
+    });
 }
 
 function promptForAdditionalText(tabId, selectedText, callback) {

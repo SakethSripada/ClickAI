@@ -16,7 +16,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     renderPromptBox(request.selectedText, sendResponse);
     return true;
   } else if (request.type === 'extractTextFromImage') {
-    handleExtractTextFromImage(request.imageUrl, sendResponse);
+    handleExtractTextFromImage(request.imageUrl, sendResponse, 'Extracting text...');
     return true;
   } else if (request.type === 'openChat') {
     chrome.storage.local.set({ aiMessage: request.message }, () => {
@@ -71,8 +71,8 @@ function removeExistingAlert() {
   }
 }
 
-function handleExtractTextFromImage(imageUrl, sendResponse) {
-  renderLoadingAlert("Extracting text and getting response...");
+function handleExtractTextFromImage(imageUrl, sendResponse, loadingMessage = 'Extracting text and getting response...') {
+  renderLoadingAlert(loadingMessage);
 
   const img = new Image();
   img.crossOrigin = 'Anonymous';
