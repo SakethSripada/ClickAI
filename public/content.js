@@ -15,9 +15,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.type === 'showPrompt') {
     renderPromptBox(request.selectedText, sendResponse);
     return true;
-  } else if (request.type === 'extractTextFromImage') {
-    handleExtractTextFromImage(request.imageUrl, sendResponse, 'Extracting text...');
-    return true;
   } else if (request.type === 'openChat') {
     chrome.storage.local.set({ aiMessage: request.message }, () => {
       highlightExtensionIcon();
@@ -69,38 +66,6 @@ function removeExistingAlert() {
     root.unmount();
     document.body.removeChild(existingAlert);
   }
-}
-
-function handleExtractTextFromImage(imageUrl, sendResponse, loadingMessage = 'Extracting text and getting response...') {
-  renderLoadingAlert(loadingMessage);
-
-  const img = new Image();
-  img.crossOrigin = 'Anonymous';
-  img.src = imageUrl;
-
-  img.onload = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-
-    const dataUrl = canvas.toDataURL('image/png');
-    Tesseract.recognize(dataUrl, 'eng')
-      .then(({ data: { text } }) => {
-        console.log("Extracted Text: " + text);
-        sendResponse({ extractedText: text });
-      })
-      .catch(error => {
-        console.error('Error extracting text from image:', error);
-        sendResponse({ extractedText: null });
-      });
-  };
-
-  img.onerror = (error) => {
-    console.error('Error attempting to read image:', error);
-    sendResponse({ extractedText: null });
-  };
 }
 
 function highlightExtensionIcon() {
