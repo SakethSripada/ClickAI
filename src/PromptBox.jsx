@@ -1,86 +1,19 @@
 import React, { useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import './PromptBox.css';
+
+/**
+ * Simple heuristic to decide if the text “looks like” code.
+ */
+function looksLikeCode(text) {
+  const codeIndicators = [/function\s+/, /=>/, /{.*}/, /#include/, /<\w+>/];
+  return codeIndicators.some((regex) => regex.test(text));
+}
 
 const PromptBox = ({ selectedText, onSubmit }) => {
   const [additionalText, setAdditionalText] = useState('');
-
-  const styles = {
-    overlay: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      zIndex: 9999,
-    },
-    promptBox: {
-      position: 'fixed',
-      top: '30%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
-      backgroundColor: '#fff',
-      border: '2px solid #000',
-      padding: '20px',
-      zIndex: 10000,
-      boxShadow: '0px 0px 10px rgba(0, 0, 0, 0.5)',
-      borderRadius: '10px',
-      maxWidth: '80%',
-      maxHeight: '60%',
-      overflowY: 'auto',
-      overflowX: 'hidden',
-      textAlign: 'center',
-      color: '#000',
-    },
-    message: {
-      margin: '0 0 10px',
-      fontSize: '16px',
-      color: '#000',
-    },
-    selectedTextContainer: {
-      maxHeight: '100px',
-      overflowY: 'auto',
-      marginBottom: '10px',
-      padding: '10px',
-      backgroundColor: '#f9f9f9',
-      textAlign: 'left',
-      whiteSpace: 'pre-wrap',
-    },
-    input: {
-      width: 'calc(100% - 20px)',
-      padding: '10px',
-      fontSize: '14px',
-      marginBottom: '10px',
-      borderRadius: '5px',
-      border: '1px solid #ccc',
-    },
-    button: {
-      padding: '10px 20px',
-      fontSize: '14px',
-      border: 'none',
-      backgroundColor: '#007BFF',
-      color: '#fff',
-      cursor: 'pointer',
-      borderRadius: '5px',
-      margin: '5px',
-    },
-    closeButton: {
-      padding: '10px 20px',
-      fontSize: '14px',
-      border: 'none',
-      backgroundColor: '#007BFF',
-      color: '#fff',
-      cursor: 'pointer',
-      borderRadius: '5px',
-      marginTop: '10px',
-    },
-    buttonHover: {
-      backgroundColor: '#0056b3',
-    },
-  };
-
-  const handleSubmit = () => {
-    onSubmit(additionalText);
-  };
 
   const handleClose = (e) => {
     e.stopPropagation();
@@ -100,34 +33,39 @@ const PromptBox = ({ selectedText, onSubmit }) => {
     }
   };
 
+  const handleSubmit = () => {
+    onSubmit(additionalText);
+  };
+
   return (
-    <div style={styles.overlay} onClick={handleClose}>
-      <div style={styles.promptBox} onClick={(e) => e.stopPropagation()}>
-        <p style={styles.message}>Add additional prompt for:</p>
-        <div style={styles.selectedTextContainer}>{selectedText}</div>
+    <div className="prompt-container">
+      <div className="prompt-box">
+        <h2 className="prompt-title">Add Additional Prompt</h2>
+        <div className="selected-text-container">
+          {looksLikeCode(selectedText) ? (
+            <SyntaxHighlighter language="javascript" style={oneDark}>
+              {selectedText}
+            </SyntaxHighlighter>
+          ) : (
+            <p className="selected-text">{selectedText}</p>
+          )}
+        </div>
         <input
+          className="prompt-input"
           type="text"
-          style={styles.input}
+          placeholder="Enter your prompt here..."
           value={additionalText}
           onChange={(e) => setAdditionalText(e.target.value)}
           onKeyDown={handleKeyDown}
         />
-        <button
-          style={styles.button}
-          onClick={handleSubmit}
-          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor)}
-          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.button.backgroundColor)}
-        >
-          Submit
-        </button>
-        <button
-          style={styles.closeButton}
-          onClick={handleClose}
-          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor)}
-          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = styles.closeButton.backgroundColor)}
-        >
-          Close
-        </button>
+        <div className="prompt-button-container">
+          <button className="prompt-btn primary-btn" onClick={handleSubmit}>
+            Submit
+          </button>
+          <button className="prompt-btn outline-btn" onClick={handleClose}>
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );
