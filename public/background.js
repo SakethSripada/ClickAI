@@ -2,248 +2,251 @@
  * background.js
  *****************************************************/
 chrome.runtime.onInstalled.addListener(() => {
-    // Create context menu items
-    chrome.contextMenus.create({
-      id: "captureText",
-      title: "Ask ClickAI about '%s'",
-      contexts: ["selection"]
-    });
-  
-    chrome.contextMenus.create({
-      id: "addPromptAndCaptureText",
-      title: "Add prompt and ask ClickAI about '%s'",
-      contexts: ["selection"]
-    });
+  // Create context menu items
+  chrome.contextMenus.create({
+    id: "captureText",
+    title: "Ask ClickAI about '%s'",
+    contexts: ["selection"]
   });
-  
-  // Handle context menu clicks
-  chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId === "captureText") {
-      handleCaptureText(info, tab);
-    } else if (info.menuItemId === "addPromptAndCaptureText") {
-      handleAddPromptAndCaptureText(info, tab);
-    }
+
+  chrome.contextMenus.create({
+    id: "addPromptAndCaptureText",
+    title: "Add prompt and ask ClickAI about '%s'",
+    contexts: ["selection"]
   });
-  
-  /**
-   * handleCaptureText
-   */
-  function handleCaptureText(info, tab) {
-    if (info.selectionText) {
-      const selectedText = info.selectionText;
-      injectConsoleLog(tab.id, "Captured Text: " + selectedText);
-      displayLoadingAlert(tab.id, "Getting AI Response...");
-  
-      sendTextToAI(tab.id, selectedText, (response) => {
-        injectConsoleLog(tab.id, "AI Response: " + response);
-        updateCustomAlert(tab.id, `AI Response: ${response}`);
-        chrome.runtime.sendMessage({ type: 'openChat', message: response });
-      });
-    } else {
-      // No selectionText in info; try script injection to capture selection
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        function: captureHighlightedText
-      }, (results) => {
-        if (results && results[0] && results[0].result) {
-          const selectedText = results[0].result;
-          injectConsoleLog(tab.id, "Captured Text: " + selectedText);
-          displayLoadingAlert(tab.id, "Getting AI Response...");
-  
-          sendTextToAI(tab.id, selectedText, (response) => {
-            injectConsoleLog(tab.id, "AI Response: " + response);
-            updateCustomAlert(tab.id, `AI Response: ${response}`);
-            chrome.runtime.sendMessage({ type: 'openChat', message: response });
-          });
-        } else {
-          injectConsoleLog(tab.id, 'Error: No text selected');
-          displayCustomAlert(tab.id, 'Error: No text selected');
-        }
-      });
-    }
+});
+
+// Handle context menu clicks
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "captureText") {
+    handleCaptureText(info, tab);
+  } else if (info.menuItemId === "addPromptAndCaptureText") {
+    handleAddPromptAndCaptureText(info, tab);
   }
-  
-  /**
-   * handleAddPromptAndCaptureText
-   */
-  function handleAddPromptAndCaptureText(info, tab) {
-    if (info.selectionText) {
-      const selectedText = info.selectionText;
-      promptForAdditionalText(tab.id, selectedText, (combinedText) => {
-        handleTextCaptureWithPrompt(tab.id, combinedText);
-      });
-    } else {
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        function: captureHighlightedText
-      }, (results) => {
-        if (results && results[0] && results[0].result) {
-          const selectedText = results[0].result;
-          promptForAdditionalText(tab.id, selectedText, (combinedText) => {
-            handleTextCaptureWithPrompt(tab.id, combinedText);
-          });
-        } else {
-          injectConsoleLog(tab.id, 'Error: No text selected');
-          displayCustomAlert(tab.id, 'Error: No text selected');
-        }
-      });
-    }
-  }
-  
-  /**
-   * promptForAdditionalText
-   */
-  function promptForAdditionalText(tabId, selectedText, callback) {
-    chrome.tabs.sendMessage(
-      tabId,
-      { type: 'showPrompt', selectedText: selectedText },
-      (response) => {
-        if (response && response.additionalText !== undefined) {
-          const additionalText = response.additionalText;
-          const combinedText = additionalText
-            ? `${additionalText} ${selectedText}`
-            : selectedText;
-          callback(combinedText);
-        } else {
-          callback(selectedText);
-        }
-      }
-    );
-  }
-  
-  /**
-   * handleTextCaptureWithPrompt
-   */
-  function handleTextCaptureWithPrompt(tabId, combinedText) {
-    injectConsoleLog(tabId, "Captured Text with Prompt: " + combinedText);
-    displayLoadingAlert(tabId, "Getting AI Response...");
-  
-    sendTextToAI(tabId, combinedText, (response) => {
-      injectConsoleLog(tabId, "AI Response: " + response);
-      updateCustomAlert(tabId, `AI Response: ${response}`);
+});
+
+/**
+ * handleCaptureText
+ */
+function handleCaptureText(info, tab) {
+  if (info.selectionText) {
+    const selectedText = info.selectionText;
+    injectConsoleLog(tab.id, "Captured Text: " + selectedText);
+    displayLoadingAlert(tab.id, "Getting AI Response...");
+
+    sendTextToAI(tab.id, selectedText, (response) => {
+      injectConsoleLog(tab.id, "AI Response: " + response);
+      updateCustomAlert(tab.id, `AI Response: ${response}`);
       chrome.runtime.sendMessage({ type: 'openChat', message: response });
     });
+  } else {
+    // No selectionText in info; try script injection to capture selection
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      function: captureHighlightedText
+    }, (results) => {
+      if (results && results[0] && results[0].result) {
+        const selectedText = results[0].result;
+        injectConsoleLog(tab.id, "Captured Text: " + selectedText);
+        displayLoadingAlert(tab.id, "Getting AI Response...");
+
+        sendTextToAI(tab.id, selectedText, (response) => {
+          injectConsoleLog(tab.id, "AI Response: " + response);
+          updateCustomAlert(tab.id, `AI Response: ${response}`);
+          chrome.runtime.sendMessage({ type: 'openChat', message: response });
+        });
+      } else {
+        injectConsoleLog(tab.id, 'Error: No text selected');
+        displayCustomAlert(tab.id, 'Error: No text selected');
+      }
+    });
   }
-  
-  /**
-   * captureHighlightedText (injected function)
-   */
-  function captureHighlightedText() {
-    const selectedText = window.getSelection().toString();
-    return selectedText ? selectedText : null;
+}
+
+/**
+ * handleAddPromptAndCaptureText
+ */
+function handleAddPromptAndCaptureText(info, tab) {
+  if (info.selectionText) {
+    const selectedText = info.selectionText;
+    promptForAdditionalText(tab.id, selectedText, (combinedText) => {
+      handleTextCaptureWithPrompt(tab.id, combinedText);
+    });
+  } else {
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      function: captureHighlightedText
+    }, (results) => {
+      if (results && results[0] && results[0].result) {
+        const selectedText = results[0].result;
+        promptForAdditionalText(tab.id, selectedText, (combinedText) => {
+          handleTextCaptureWithPrompt(tab.id, combinedText);
+        });
+      } else {
+        injectConsoleLog(tab.id, 'Error: No text selected');
+        displayCustomAlert(tab.id, 'Error: No text selected');
+      }
+    });
   }
-  
-  /**
-   * sendTextToAI
-   *   - sends conversationHistory with a single user message for now
-   */
-  function sendTextToAI(tabId, text, callback) {
+}
+
+/**
+ * promptForAdditionalText
+ */
+function promptForAdditionalText(tabId, selectedText, callback) {
+  chrome.tabs.sendMessage(
+    tabId,
+    { type: 'showPrompt', selectedText: selectedText },
+    (response) => {
+      if (response && response.additionalText !== undefined) {
+        const additionalText = response.additionalText;
+        const combinedText = additionalText
+          ? `${additionalText} ${selectedText}`
+          : selectedText;
+        callback(combinedText);
+      } else {
+        callback(selectedText);
+      }
+    }
+  );
+}
+
+/**
+ * handleTextCaptureWithPrompt
+ */
+function handleTextCaptureWithPrompt(tabId, combinedText) {
+  injectConsoleLog(tabId, "Captured Text with Prompt: " + combinedText);
+  displayLoadingAlert(tabId, "Getting AI Response...");
+
+  sendTextToAI(tabId, combinedText, (response) => {
+    injectConsoleLog(tab.id, "AI Response: " + response);
+    updateCustomAlert(tabId, `AI Response: ${response}`);
+    chrome.runtime.sendMessage({ type: 'openChat', message: response });
+  });
+}
+
+/**
+ * captureHighlightedText (injected function)
+ */
+function captureHighlightedText() {
+  const selectedText = window.getSelection().toString();
+  return selectedText ? selectedText : null;
+}
+
+/**
+ * sendTextToAI
+ *   - sends conversationHistory with a single user message for now
+ */
+function sendTextToAI(tabId, text, callback) {
+  fetch('http://localhost:5010/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      conversationHistory: [{ sender: 'user', text }]
+    })
+  })
+    .then(response => response.json())
+    .then(data => {
+      if (data && data.response) {
+        callback(data.response);
+      } else {
+        injectConsoleLog(tabId, 'Error: No response from AI');
+        updateCustomAlert(tabId, 'Error: No response from AI');
+      }
+    })
+    .catch(error => {
+      console.error('Error sending text to AI:', error);
+      injectConsoleLog(tabId, 'Error: Unable to contact AI server');
+      updateCustomAlert(tabId, 'Error: Unable to contact AI server');
+    });
+}
+
+/**
+ * Display & Update alert logic
+ */
+function displayLoadingAlert(tabId, message) {
+  chrome.tabs.sendMessage(tabId, {
+    type: 'customAlert',
+    message: message,
+    loading: true
+  });
+}
+
+function updateCustomAlert(tabId, message) {
+  chrome.tabs.sendMessage(tabId, {
+    type: 'customAlert',
+    message: message,
+    loading: false
+  });
+}
+
+function displayCustomAlert(tabId, message) {
+  chrome.tabs.sendMessage(tabId, {
+    type: 'customAlert',
+    message: message,
+    loading: false
+  });
+}
+
+/**
+ * Inject console log
+ */
+function injectConsoleLog(tabId, message) {
+  chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    func: (msg) => console.log(msg),
+    args: [message]
+  });
+}
+
+/**
+ * Badge & openChat logic
+ */
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'openChat') {
+    chrome.storage.local.set({ aiMessage: request.message }, () => {
+      highlightExtensionIcon();
+    });
+  }
+  if (request.type === 'popupOpened') {
+    clearBadge();
+  }
+  // Handle continued conversation and follow-up messages
+  if (request.type === 'continueChat') {
     fetch('http://localhost:5010/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        conversationHistory: [{ sender: 'user', text }]
+        conversationHistory: request.conversationHistory,
+        continueId: request.continueId
       })
     })
       .then(response => response.json())
       .then(data => {
         if (data && data.response) {
-          callback(data.response);
+          sendResponse({
+            response: data.response,
+            id: data.id || null,
+            isContinued: data.isContinued || false
+          });
         } else {
-          injectConsoleLog(tabId, 'Error: No response from AI');
-          updateCustomAlert(tabId, 'Error: No response from AI');
+          sendResponse({ error: 'No response from AI' });
         }
       })
-      .catch(error => {
-        console.error('Error sending text to AI:', error);
-        injectConsoleLog(tabId, 'Error: Unable to contact AI server');
-        updateCustomAlert(tabId, 'Error: Unable to contact AI server');
+      .catch(err => {
+        console.error('Error in continueChat fetch:', err);
+        sendResponse({ error: 'Unable to contact AI server' });
       });
+    // Return true to indicate async response
+    return true;
   }
-  
-  /**
-   * Display & Update alert logic
-   */
-  function displayLoadingAlert(tabId, message) {
-    chrome.tabs.sendMessage(tabId, {
-      type: 'customAlert',
-      message: message,
-      loading: true
-    });
-  }
-  
-  function updateCustomAlert(tabId, message) {
-    chrome.tabs.sendMessage(tabId, {
-      type: 'customAlert',
-      message: message,
-      loading: false
-    });
-  }
-  
-  function displayCustomAlert(tabId, message) {
-    chrome.tabs.sendMessage(tabId, {
-      type: 'customAlert',
-      message: message,
-      loading: false
-    });
-  }
-  
-  /**
-   * Inject console log
-   */
-  function injectConsoleLog(tabId, message) {
-    chrome.scripting.executeScript({
-      target: { tabId: tabId },
-      func: (msg) => console.log(msg),
-      args: [message]
-    });
-  }
-  
-  /**
-   * Badge & openChat logic
-   */
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.type === 'openChat') {
-      chrome.storage.local.set({ aiMessage: request.message }, () => {
-        highlightExtensionIcon();
-      });
-    }
-    if (request.type === 'popupOpened') {
-      clearBadge();
-    }
-    // Handle continued conversation from AIResponseAlert
-    if (request.type === 'continueChat') {
-      // We pass the entire conversationHistory from content script
-      fetch('http://localhost:5010/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversationHistory: request.conversationHistory
-        })
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data && data.response) {
-            sendResponse({ answer: data.response });
-          } else {
-            sendResponse({ error: 'No response from AI' });
-          }
-        })
-        .catch(err => {
-          console.error('Error in continueChat fetch:', err);
-          sendResponse({ error: 'Unable to contact AI server' });
-        });
-      // Return true to indicate async response
-      return true;
-    }
-  });
-  
-  function highlightExtensionIcon() {
-    chrome.action.setBadgeText({ text: 'NEW' });
-    chrome.action.setBadgeBackgroundColor({ color: '#00FF00' });
-  }
-  
-  function clearBadge() {
-    chrome.action.setBadgeText({ text: '' });
-  }
-  
+});
+
+function highlightExtensionIcon() {
+  chrome.action.setBadgeText({ text: 'NEW' });
+  chrome.action.setBadgeBackgroundColor({ color: '#00FF00' });
+}
+
+function clearBadge() {
+  chrome.action.setBadgeText({ text: '' });
+}

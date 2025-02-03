@@ -1,44 +1,52 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Rnd } from 'react-rnd'; // For drag + resize
-import { FaTimes } from 'react-icons/fa';
+import { Rnd } from 'react-rnd';
+import { FaTimes, FaSpinner } from 'react-icons/fa';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { marked } from 'marked';
 import './AIResponseAlert.css';
 
 /**
- * Splits a message into code and text blocks using triple backticks.
+ * Improved parser for message blocks.
+ * It now handles unclosed code fences by treating any content after an opening "```"
+ * (without a corresponding closing "```") as code.
  */
 function parseMessageToBlocks(message) {
-  const regex = /```([\s\S]*?)```/g;
   const parts = [];
-  let lastIndex = 0;
-  let match;
-  while ((match = regex.exec(message)) !== null) {
-    if (match.index > lastIndex) {
+  let currentIndex = 0;
+  while (currentIndex < message.length) {
+    const startFence = message.indexOf("```", currentIndex);
+    if (startFence === -1) {
+      // No more fences – add the rest as text.
+      parts.push({ type: 'text', content: message.slice(currentIndex) });
+      break;
+    }
+    if (startFence > currentIndex) {
       parts.push({
         type: 'text',
-        content: message.slice(lastIndex, match.index),
+        content: message.slice(currentIndex, startFence)
       });
     }
-    parts.push({
-      type: 'code',
-      content: match[0],
-    });
-    lastIndex = regex.lastIndex;
-  }
-  if (lastIndex < message.length) {
-    parts.push({
-      type: 'text',
-      content: message.slice(lastIndex),
-    });
+    // Look for the closing fence.
+    const endFence = message.indexOf("```", startFence + 3);
+    if (endFence === -1) {
+      // Unclosed code block – take the rest as code.
+      parts.push({ type: 'code', content: message.slice(startFence) });
+      break;
+    } else {
+      parts.push({
+        type: 'code',
+        content: message.slice(startFence, endFence + 3)
+      });
+      currentIndex = endFence + 3;
+    }
   }
   return parts;
 }
 
 /**
- * Extracts the language from the code fence.
+ * Extracts the language from a code fence.
  */
 function getLanguageFromFence(content) {
   const lines = content.split('\n');
@@ -47,35 +55,29 @@ function getLanguageFromFence(content) {
 }
 
 /**
- * Extracts the inner code from the code fence.
+ * Extracts the inner code (removing the fences) from the code block.
  */
 function getCodeContent(content) {
-  return content.replace(/```[\s\S]*?\n/, '').replace(/```/, '');
+  return content.replace(/^```[\s\S]*?\n/, '').replace(/```$/, '');
 }
 
-// Configure marked for non‐code text (with breaks)
+// Configure marked to render non‐code text with breaks.
 marked.setOptions({
   breaks: true,
 });
 
 const AIResponseAlert = ({ message }) => {
-  // Conversation state holds both assistant and user messages.
   const [conversation, setConversation] = useState([
     { sender: 'assistant', text: message }
   ]);
   const [userInput, setUserInput] = useState('');
   const [containsMath, setContainsMath] = useState(false);
-
-  // Theme state: "light" or "dark"
   const [theme, setTheme] = useState('light');
-
-  // Dock mode state and dock width (min 300, max 600)
   const [isDocked, setIsDocked] = useState(false);
   const [dockedWidth, setDockedWidth] = useState(350);
-
-  // “Continue generating” state: if the answer was cut off
   const [continueId, setContinueId] = useState(null);
   const [isContinued, setIsContinued] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const iframeRef = useRef(null);
 
@@ -86,7 +88,7 @@ const AIResponseAlert = ({ message }) => {
     setContainsMath(hasMath);
   }, [conversation]);
 
-  // When math is present, post the text to the iframe (math rendering handled later)
+  // When math is present, post the text to the iframe for rendering.
   useEffect(() => {
     if (containsMath && iframeRef.current && iframeRef.current.contentWindow) {
       iframeRef.current.onload = () => {
@@ -123,22 +125,22 @@ const AIResponseAlert = ({ message }) => {
     handleClose();
   };
 
-  /** Sends a new user message to the server. */
+  /** Sends a new user message (follow-up) to the server. */
   const handleSendMessage = () => {
     const followUp = userInput.trim();
     if (!followUp) return;
-
+    setIsLoading(true);
     const updated = [...conversation, { sender: 'user', text: followUp }];
     setConversation(updated);
     setUserInput('');
-
     chrome.runtime.sendMessage(
       {
         type: 'continueChat',
         conversationHistory: updated,
-        continueId: null, // initial generation
+        continueId: null, // initial generation for follow-up
       },
       (response) => {
+        setIsLoading(false);
         if (response && response.response) {
           setConversation((prev) => [
             ...prev,
@@ -156,8 +158,30 @@ const AIResponseAlert = ({ message }) => {
     );
   };
 
+  /**
+   * Merges the appended response into the last assistant message.
+   * If the message ends with an open code block (i.e. odd number of "```"),
+   * then the new text is appended directly (after removing any redundant fence).
+   * Otherwise, a newline is added.
+   */
+  const mergeAssistantResponse = (existingText, appendedText) => {
+    const fenceRegex = /```/g;
+    const fenceMatches = existingText.match(fenceRegex);
+    const fenceCount = fenceMatches ? fenceMatches.length : 0;
+    if (fenceCount % 2 === 1) {
+      // We are inside an open code block.
+      if (appendedText.trim().startsWith('```')) {
+        appendedText = appendedText.trim().replace(/^```/, '');
+      }
+      return existingText + appendedText;
+    } else {
+      return existingText + "\n" + appendedText;
+    }
+  };
+
   /** Continues a previously truncated response. */
   const handleContinueGenerating = () => {
+    setIsLoading(true);
     chrome.runtime.sendMessage(
       {
         type: 'continueChat',
@@ -165,13 +189,14 @@ const AIResponseAlert = ({ message }) => {
         continueId: continueId,
       },
       (response) => {
+        setIsLoading(false);
         if (response && response.response) {
           setConversation((prev) => {
             const lastIndex = prev.length - 1;
             const lastMsg = prev[lastIndex];
             if (lastMsg.sender === 'assistant') {
-              // Append new text to the previous assistant message.
-              const updatedMsg = { ...lastMsg, text: lastMsg.text + response.response };
+              const mergedText = mergeAssistantResponse(lastMsg.text, response.response);
+              const updatedMsg = { ...lastMsg, text: mergedText };
               return [...prev.slice(0, lastIndex), updatedMsg];
             } else {
               return [...prev, { sender: 'assistant', text: response.response }];
@@ -209,8 +234,8 @@ const AIResponseAlert = ({ message }) => {
   };
 
   /**
-   * Renders a single conversation message,
-   * splitting out code blocks and wrapping them in a SyntaxHighlighter.
+   * Renders a single conversation message.
+   * Splits out code blocks and wraps them in a SyntaxHighlighter.
    */
   const renderMessage = (msg, index) => {
     const isUser = msg.sender === 'user';
@@ -250,67 +275,7 @@ const AIResponseAlert = ({ message }) => {
     );
   };
 
-  /**
-   * Renders the alert window.
-   * When docked, the panel is wrapped in an Rnd that only allows horizontal resizing.
-   */
-  const renderWindow = () => {
-    if (isDocked) {
-      return (
-        <Rnd
-          size={{ width: dockedWidth, height: window.innerHeight }}
-          position={{ x: window.innerWidth - dockedWidth, y: 0 }}
-          minWidth={300}
-          maxWidth={600}
-          disableDragging={true}
-          enableResizing={{ left: true }}
-          bounds="window"
-          onResizeStop={(e, direction, ref) => {
-            setDockedWidth(parseInt(ref.style.width, 10));
-          }}
-          className="docked-rnd"
-        >
-          <div className="alert-window docked">
-            {renderHeader()}
-            {renderContent()}
-            {renderFooter()}
-          </div>
-        </Rnd>
-      );
-    }
-    return (
-      <Rnd
-        default={{
-          x: window.innerWidth / 2 - 300,
-          y: window.innerHeight / 2 - 200,
-          width: 600,
-          height: 400,
-        }}
-        minWidth={300}
-        minHeight={200}
-        bounds="window"
-        enableResizing={{
-          top: true,
-          right: true,
-          bottom: true,
-          left: true,
-          topRight: true,
-          bottomRight: true,
-          bottomLeft: true,
-          topLeft: true,
-        }}
-        className="alert-rnd-container"
-      >
-        <div className="alert-window">
-          {renderHeader()}
-          {renderContent()}
-          {renderFooter()}
-        </div>
-      </Rnd>
-    );
-  };
-
-  /** Renders the header with the title, dock toggle, theme toggle, and close button. */
+  /** Renders the header with title, dock toggle, theme toggle, and close button. */
   const renderHeader = () => {
     return (
       <div className="alert-header drag-handle">
@@ -330,17 +295,31 @@ const AIResponseAlert = ({ message }) => {
     );
   };
 
-  /** Renders the conversation content area along with the “Continue Generating” button if needed. */
+  /**
+   * Renders the conversation content.
+   * If a response is pending, displays the “AI is typing…” spinner.
+   * Otherwise, if a truncated answer remains, shows the continue button.
+   */
   const renderContent = () => {
     return (
       <div className="alert-content" id="ai-response-content">
         {conversation.map((msg, i) => renderMessage(msg, i))}
-        {isContinued && (
-          <div className="continue-container">
-            <button className="continue-btn" onClick={handleContinueGenerating}>
-              Continue Generating
-            </button>
+        {isLoading ? (
+          <div className="typing-indicator">
+            <FaSpinner className="spinner" /> AI is typing...
           </div>
+        ) : (
+          isContinued && (
+            <div className="continue-container">
+              <button
+                className="continue-btn"
+                onClick={handleContinueGenerating}
+                disabled={isLoading}
+              >
+                Continue Generating
+              </button>
+            </div>
+          )
         )}
         {containsMath && (
           <iframe
@@ -374,6 +353,66 @@ const AIResponseAlert = ({ message }) => {
           Open In Chat
         </button>
       </div>
+    );
+  };
+
+  /**
+   * Renders the alert window.
+   * In docked mode, the panel is wrapped in an Rnd that only allows horizontal resizing.
+   */
+  const renderWindow = () => {
+    if (isDocked) {
+      return (
+        <Rnd
+          size={{ width: dockedWidth, height: window.innerHeight }}
+          position={{ x: Math.round(window.innerWidth - dockedWidth), y: 0 }}
+          minWidth={300}
+          maxWidth={600}
+          disableDragging={true}
+          enableResizing={{ left: true }}
+          bounds="window"
+          onResizeStop={(e, direction, ref) => {
+            setDockedWidth(parseInt(ref.style.width, 10));
+          }}
+          className="docked-rnd"
+        >
+          <div className="alert-window docked">
+            {renderHeader()}
+            {renderContent()}
+            {renderFooter()}
+          </div>
+        </Rnd>
+      );
+    }
+    return (
+      <Rnd
+        default={{
+          x: Math.round(window.innerWidth / 2 - 300),
+          y: Math.round(window.innerHeight / 2 - 200),
+          width: 600,
+          height: 400,
+        }}
+        minWidth={300}
+        minHeight={200}
+        bounds="window"
+        enableResizing={{
+          top: true,
+          right: true,
+          bottom: true,
+          left: true,
+          topRight: true,
+          bottomRight: true,
+          bottomLeft: true,
+          topLeft: true,
+        }}
+        className="alert-rnd-container"
+      >
+        <div className="alert-window">
+          {renderHeader()}
+          {renderContent()}
+          {renderFooter()}
+        </div>
+      </Rnd>
     );
   };
 
