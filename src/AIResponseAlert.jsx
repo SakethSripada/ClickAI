@@ -124,12 +124,6 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     }
   };
 
-  /** Opens the full chat in an extension popup. */
-  const handleOpenInChat = () => {
-    chrome.runtime.sendMessage({ type: 'openChat', message: '' });
-    handleClose();
-  };
-
   /** Sends a new user message (follow-up) to the server. */
   const handleSendMessage = () => {
     const followUp = userInput.trim();
@@ -361,9 +355,6 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
         <button className="alert-btn primary-btn" onClick={handleSendMessage}>
           Send
         </button>
-        <button className="alert-btn outline-btn" onClick={handleOpenInChat}>
-          Open In Chat
-        </button>
       </div>
     );
   };
@@ -378,7 +369,7 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
           size={{ width: dockedWidth, height: window.innerHeight }}
           position={{ x: Math.round(window.innerWidth - dockedWidth), y: 0 }}
           minWidth={300}
-          maxWidth={600}
+          maxWidth={800}
           disableDragging={true}
           enableResizing={{ left: true }}
           bounds="window"
