@@ -1,10 +1,16 @@
 /*****************************************************
  * content.js
+ * 
+ * This file injects the AI chat UI into the webpage,
+ * handles floating button creation, message passing,
+ * and now also processes snipped images using Tesseract OCR.
  *****************************************************/
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import AIResponseAlert from '../src/AIResponseAlert';
 import PromptBox from '../src/PromptBox';
+import SnippingTool from '../src/SnippingTool';
+import Tesseract from 'tesseract.js'; // Import Tesseract OCR
 
 // Global references to the alert container and its React ref
 let aiResponseAlertRoot = null;
@@ -13,6 +19,8 @@ window.aiResponseAlertRef = null;
 /**
  * If an AIResponseAlert is already open, append the new user query;
  * otherwise, render a new AIResponseAlert with the initial query.
+ *
+ * @param {string} newQuery - The user query to append or use as initial input.
  */
 function renderOrAppendQuery(newQuery) {
   const existingAlert = document.querySelector('#react-root');
@@ -27,6 +35,8 @@ function renderOrAppendQuery(newQuery) {
 
 /**
  * Creates and opens AIResponseAlert.
+ *
+ * @param {string} [initialQuery=""] - The initial query to display.
  */
 function createAIResponseAlert(initialQuery = "") {
   const alertBox = document.createElement('div');
@@ -86,6 +96,130 @@ function injectFloatingButton() {
 }
 
 /**
+ * Launches the snipping tool overlay.
+ * After the user snips an area, the image is processed via OCR to extract text.
+ * That text is then sent as a normal user query to the AI backend.
+ */
+function launchSnippingTool() {
+  // Create container for SnippingTool
+  const snipContainer = document.createElement('div');
+  snipContainer.id = 'snip-container';
+  document.body.appendChild(snipContainer);
+  const snipRoot = createRoot(snipContainer);
+  snipRoot.render(
+    <SnippingTool
+      onComplete={(croppedImageData) => {
+        // Remove snipping tool overlay
+        snipRoot.unmount();
+        document.body.removeChild(snipContainer);
+        // Process the snipped image using Tesseract OCR to extract text
+        Tesseract.recognize(croppedImageData, 'eng', { logger: m => console.log(m) })
+          .then(({ data: { text } }) => {
+            const extractedText = text.trim();
+            if (!extractedText) {
+              // If OCR yields no text, notify the user
+              renderOrAppendQuery('[No text detected]');
+              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No text detected in the snip.');
+              }
+              return;
+            }
+            // Append the extracted text as a new user query
+            renderOrAppendQuery(extractedText);
+            // Send the extracted text to AI as a normal text query
+            fetch('http://localhost:5010/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                conversationHistory: [{ sender: 'user', text: extractedText }]
+              })
+            })
+              .then(response => response.json())
+              .then(data => {
+                if (data && data.response) {
+                  if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                    window.aiResponseAlertRef.current.updateLastAssistantResponse(data.response);
+                  }
+                  chrome.runtime.sendMessage({ type: 'openChat', message: data.response });
+                } else {
+                  if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                    window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No response from AI');
+                  }
+                }
+              })
+              .catch(error => {
+                console.error('Error sending text to AI:', error);
+                if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                  window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Unable to contact AI server');
+                }
+              });
+          })
+          .catch(err => {
+            console.error('Error during OCR processing:', err);
+            renderOrAppendQuery('[OCR Error]');
+            if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+              window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: OCR processing failed.');
+            }
+          });
+      }}
+      onCancel={() => {
+        snipRoot.unmount();
+        document.body.removeChild(snipContainer);
+      }}
+    />
+  );
+}
+
+/**
+ * Converts a base64 data URL to a Blob.
+ *
+ * @param {string} dataurl - The base64 data URL.
+ * @returns {Blob} The resulting Blob.
+ */
+function dataURLtoBlob(dataurl) {
+  const arr = dataurl.split(',');
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : '';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+}
+
+/*
+ * The sendImageToAI function is no longer used because we now process the image using OCR.
+ * It is kept here commented out for reference.
+ *
+// function sendImageToAI(imageData, callback) {
+//   const blob = dataURLtoBlob(imageData);
+//   const formData = new FormData();
+//   formData.append('file', blob, 'image.png');
+//   // Optionally, add conversationHistory as JSON string if needed.
+//   formData.append('conversationHistory', JSON.stringify([{ sender: 'user', text: '[Image Input]' }]));
+
+//   fetch('http://localhost:5010/generate', {
+//     method: 'POST',
+//     body: formData,
+//   })
+//     .then(response => response.json())
+//     .then(data => {
+//       if (data && data.response) {
+//         callback(data.response);
+//       } else {
+//         callback('Error: No response from AI');
+//       }
+//     })
+//     .catch(error => {
+//       console.error('Error sending image to AI:', error);
+//       callback('Error: Unable to contact AI server');
+//     });
+// }
+*/
+
+/**
  * Injects the floating button when the script runs.
  */
 injectFloatingButton();
@@ -107,9 +241,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
   } else if (request.type === 'popupOpened') {
     clearBadge();
+  } else if (request.type === 'captureArea') {
+    // Trigger snipping tool from context menu
+    launchSnippingTool();
   }
 });
 
+/**
+ * Renders the prompt box for additional text when required.
+ *
+ * @param {string} selectedText - The text that was selected.
+ * @param {function} sendResponse - The callback to send the response.
+ */
 function renderPromptBox(selectedText, sendResponse) {
   removeExistingAlert();
   const promptBox = document.createElement('div');
@@ -127,25 +270,84 @@ function renderPromptBox(selectedText, sendResponse) {
   );
 }
 
+/**
+ * Removes any existing AI alert from the DOM.
+ */
 function removeExistingAlert() {
   const existingAlert = document.querySelector('#react-root');
   if (existingAlert) {
-    // Attempt to unmount any React component (if mounted via createRoot)
     try {
       const root = createRoot(existingAlert);
       root.unmount();
     } catch (e) {
-      // ignore errors during unmount
+      // Ignore errors during unmount
     }
     document.body.removeChild(existingAlert);
   }
 }
 
+/**
+ * Highlights the extension icon by setting a badge.
+ */
 function highlightExtensionIcon() {
   chrome.action.setBadgeText({ text: 'NEW' });
   chrome.action.setBadgeBackgroundColor({ color: '#00FF00' });
 }
 
+/**
+ * Clears the extension badge.
+ */
 function clearBadge() {
   chrome.action.setBadgeText({ text: '' });
 }
+
+/**
+ * Injects a console log into the target tab.
+ *
+ * @param {number} tabId - The ID of the tab.
+ * @param {string} message - The message to log.
+ */
+function injectConsoleLog(tabId, message) {
+  chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    func: (msg) => console.log(msg),
+    args: [message]
+  });
+}
+
+/**
+ * Sends a new user query message to the content script.
+ *
+ * @param {number} tabId - The ID of the tab.
+ * @param {string} query - The user query.
+ */
+function sendNewUserQuery(tabId, query) {
+  chrome.tabs.sendMessage(tabId, {
+    type: 'newUserQuery',
+    query: query,
+    loading: true
+  });
+}
+
+/**
+ * Sends an updated AI response message to the content script.
+ *
+ * @param {number} tabId - The ID of the tab.
+ * @param {string} response - The AI response text.
+ */
+function updateAIResponse(tabId, response) {
+  chrome.tabs.sendMessage(tabId, {
+    type: 'updateAIResponse',
+    response: response,
+    loading: false
+  });
+}
+
+export {
+  renderOrAppendQuery,
+  createAIResponseAlert,
+  launchSnippingTool,
+  sendNewUserQuery,
+  updateAIResponse,
+  injectConsoleLog
+};

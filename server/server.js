@@ -1,3 +1,13 @@
+/*****************************************************
+ * server.js
+ * 
+ * This Express server receives requests from the extension,
+ * forwards them to the AI (via the OpenAI API in this case),
+ * and sends back the AI-generated responses.
+ *
+ * The server supports both text-based queries (using conversationHistory)
+ * and, if needed in the future, image-based inputs.
+ *****************************************************/
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -12,33 +22,40 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || origin.startsWith('chrome-extension://')) {
-      return callback(null, true);
-    } else {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-  },
-  credentials: true,
+  origin: '*',  // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],  // Allow all methods
+  allowedHeaders: ['Content-Type', 'Authorization'],  // Allow necessary headers
+  credentials: true  // Allow credentials if needed
 }));
 
 app.use(express.json());
 
 const incompleteResponses = {};
 
+/**
+ * POST /generate
+ * 
+ * Receives a conversationHistory (or an image, if supported) and sends the prompt to the OpenAI API.
+ * If the response is incomplete (due to token limits), it stores the partial response for later continuation.
+ */
 app.post('/generate', async (req, res) => {
-  const { conversationHistory, continueId } = req.body;
+  const { conversationHistory, continueId, image } = req.body;
 
-  if (!conversationHistory || !Array.isArray(conversationHistory) || conversationHistory.length === 0) {
-    return res.status(400).json({ error: "Invalid conversation history. Expected a non-empty array." });
+  let formattedHistory = [];
+  if (image) {
+    // If image is provided, create a conversation with image input.
+    formattedHistory.push({
+      role: 'user',
+      content: image, // image is a base64 data URL
+    });
+  } else if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+    formattedHistory = conversationHistory.map((msg) => ({
+      role: msg.sender === 'user' ? 'user' : 'assistant',
+      content: msg.text,
+    }));
+  } else {
+    return res.status(400).json({ error: "Invalid input. Expected conversation history or image." });
   }
-
-  let formattedHistory = conversationHistory.map((msg) => ({
-    role: msg.sender === 'user' ? 'user' : 'assistant',
-    content: msg.text,
-  }));
 
   if (continueId && incompleteResponses[continueId]) {
     formattedHistory = [

@@ -1,5 +1,9 @@
 /*****************************************************
  * background.js
+ * 
+ * This file manages background tasks for the extension,
+ * such as context menu creation, handling user selections,
+ * sending queries to the AI backend, and badge management.
  *****************************************************/
 chrome.runtime.onInstalled.addListener(() => {
   // Create context menu items
@@ -14,6 +18,13 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Add prompt and ask ClickAI about '%s'",
     contexts: ["selection"]
   });
+
+  // New context menu for capturing area (snipping tool)
+  chrome.contextMenus.create({
+    id: "captureArea",
+    title: "Select area and send to ClickAI",
+    contexts: ["all"]
+  });
 });
 
 // Handle context menu clicks
@@ -22,11 +33,18 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     handleCaptureText(info, tab);
   } else if (info.menuItemId === "addPromptAndCaptureText") {
     handleAddPromptAndCaptureText(info, tab);
+  } else if (info.menuItemId === "captureArea") {
+    // Send message to content script to launch the snipping tool
+    chrome.tabs.sendMessage(tab.id, { type: 'captureArea' });
   }
 });
 
 /**
  * handleCaptureText
+ * Processes the selected text from the webpage and sends it to the AI.
+ *
+ * @param {object} info - Information about the selection.
+ * @param {object} tab - The current tab.
  */
 function handleCaptureText(info, tab) {
   if (info.selectionText) {
@@ -63,6 +81,10 @@ function handleCaptureText(info, tab) {
 
 /**
  * handleAddPromptAndCaptureText
+ * Prompts the user for additional text before sending the query.
+ *
+ * @param {object} info - Information about the selection.
+ * @param {object} tab - The current tab.
  */
 function handleAddPromptAndCaptureText(info, tab) {
   if (info.selectionText) {
@@ -90,6 +112,11 @@ function handleAddPromptAndCaptureText(info, tab) {
 
 /**
  * promptForAdditionalText
+ * Prompts the user for additional text and combines it with the selected text.
+ *
+ * @param {number} tabId - The ID of the current tab.
+ * @param {string} selectedText - The text that was selected.
+ * @param {function} callback - Callback function with the combined text.
  */
 function promptForAdditionalText(tabId, selectedText, callback) {
   chrome.tabs.sendMessage(
@@ -111,19 +138,26 @@ function promptForAdditionalText(tabId, selectedText, callback) {
 
 /**
  * handleTextCaptureWithPrompt
+ * Processes the combined text (selected text and user prompt) and sends it to the AI.
+ *
+ * @param {number} tabId - The ID of the current tab.
+ * @param {string} combinedText - The combined text input.
  */
 function handleTextCaptureWithPrompt(tabId, combinedText) {
   injectConsoleLog(tabId, "Captured Text with Prompt: " + combinedText);
   sendNewUserQuery(tabId, combinedText);
   sendTextToAI(tabId, combinedText, (response) => {
-    injectConsoleLog(tab.id, "AI Response: " + response);
+    injectConsoleLog(tabId, "AI Response: " + response);
     updateAIResponse(tabId, response);
     chrome.runtime.sendMessage({ type: 'openChat', message: response });
   });
 }
 
 /**
- * captureHighlightedText (injected function)
+ * captureHighlightedText
+ * (Injected function) Captures any text highlighted on the webpage.
+ *
+ * @returns {string|null} The highlighted text, or null if none.
  */
 function captureHighlightedText() {
   const selectedText = window.getSelection().toString();
@@ -132,7 +166,11 @@ function captureHighlightedText() {
 
 /**
  * sendTextToAI
- *   - sends conversationHistory with a single user message for now
+ * Sends a text query to the AI backend along with conversation history.
+ *
+ * @param {number} tabId - The ID of the current tab.
+ * @param {string} text - The text query.
+ * @param {function} callback - Callback function with the AI response.
  */
 function sendTextToAI(tabId, text, callback) {
   fetch('http://localhost:5010/generate', {
@@ -159,7 +197,10 @@ function sendTextToAI(tabId, text, callback) {
 }
 
 /**
- * New functions to communicate with AIResponseAlert in content script
+ * Sends a new user query message to the content script.
+ *
+ * @param {number} tabId - The ID of the current tab.
+ * @param {string} query - The user query.
  */
 function sendNewUserQuery(tabId, query) {
   chrome.tabs.sendMessage(tabId, {
@@ -169,6 +210,12 @@ function sendNewUserQuery(tabId, query) {
   });
 }
 
+/**
+ * Sends an updated AI response message to the content script.
+ *
+ * @param {number} tabId - The ID of the current tab.
+ * @param {string} response - The AI response text.
+ */
 function updateAIResponse(tabId, response) {
   chrome.tabs.sendMessage(tabId, {
     type: 'updateAIResponse',
@@ -178,7 +225,11 @@ function updateAIResponse(tabId, response) {
 }
 
 /**
- * Display & Update alert logic (legacy, kept for error alerts)
+ * displayCustomAlert
+ * Displays an error alert in the content script.
+ *
+ * @param {number} tabId - The ID of the current tab.
+ * @param {string} message - The error message.
  */
 function displayCustomAlert(tabId, message) {
   chrome.tabs.sendMessage(tabId, {
@@ -189,7 +240,10 @@ function displayCustomAlert(tabId, message) {
 }
 
 /**
- * Inject console log
+ * Injects a console log into the target tab.
+ *
+ * @param {number} tabId - The ID of the current tab.
+ * @param {string} message - The message to log.
  */
 function injectConsoleLog(tabId, message) {
   chrome.scripting.executeScript({
@@ -200,7 +254,7 @@ function injectConsoleLog(tabId, message) {
 }
 
 /**
- * Badge & openChat logic
+ * Badge & openChat logic and screenshot capture
  */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'openChat') {
@@ -237,14 +291,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ error: 'Unable to contact AI server' });
       });
     return true;
+  } else if (request.type === 'captureScreenshot') {
+    // Handle screenshot capture request from content script
+    chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'png' }, (dataUrl) => {
+      sendResponse({ screenshot: dataUrl });
+    });
+    return true;
   }
 });
 
+/**
+ * Highlights the extension icon by setting a badge.
+ */
 function highlightExtensionIcon() {
   chrome.action.setBadgeText({ text: 'NEW' });
   chrome.action.setBadgeBackgroundColor({ color: '#00FF00' });
 }
 
+/**
+ * Clears the extension badge.
+ */
 function clearBadge() {
   chrome.action.setBadgeText({ text: '' });
 }
