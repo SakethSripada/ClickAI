@@ -226,8 +226,24 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
 
   /** Toggles dock mode. */
   const toggleDock = () => {
-    setIsDocked(!isDocked);
+    setIsDocked((prev) => {
+      const newDockState = !prev;
+      if (newDockState) {
+        // Docking: Shift the webpage based on current docked width
+        document.body.classList.add("ai-docked-mode");
+        document.body.style.marginRight = `${dockedWidth}px`;
+        document.documentElement.style.setProperty("--docked-width", `${dockedWidth}px`);
+      } else {
+        // Undocking: Reset the page to normal width
+        document.body.classList.remove("ai-docked-mode");
+        document.body.style.marginRight = "";
+        document.documentElement.style.setProperty("--docked-width", "0px");
+      }
+      return newDockState;
+    });
   };
+  
+  
 
   /** Toggles between light and dark themes. */
   const toggleTheme = () => {
@@ -367,7 +383,14 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
           enableResizing={{ left: true }}
           bounds="window"
           onResizeStop={(e, direction, ref) => {
-            setDockedWidth(parseInt(ref.style.width, 10));
+            const newWidth = parseInt(ref.style.width, 10);
+            setDockedWidth(newWidth);
+
+            // Dynamically shift page width as dock resizes
+            if (isDocked) {
+              document.body.style.marginRight = `${newWidth}px`;
+              document.documentElement.style.setProperty("--docked-width", `${newWidth}px`);
+            }
           }}
           className="docked-rnd"
         >

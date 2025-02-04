@@ -325,3 +325,16 @@
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
+
+/* When AI chat is docked, shift the entire webpage */
+.ai-docked-mode {
+  margin-right: var(--docked-width, 350px); /* Default is 350px */
+  transition: margin-right 0.3s ease-in-out;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Ensure body shrinks smoothly */
+body.ai-docked-mode {
+  width: calc(100% - var(--docked-width, 350px));
+}
+
