@@ -1,9 +1,14 @@
+import React, { useRef } from 'react';
+import AIResponseAlert from './AIResponseAlert';
 import './App.css';
-import ChatPage from './ChatPage';
 
 function App() {
+  const aiResponseAlertRef = useRef(null);
+
   return (
-    <ChatPage />
+    <div>
+      <AIResponseAlert ref={aiResponseAlertRef} initialQuery="" />
+    </div>
   );
 }
 

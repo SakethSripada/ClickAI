@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Rnd } from 'react-rnd';
 import { FaTimes, FaSpinner } from 'react-icons/fa';
@@ -8,9 +8,7 @@ import { marked } from 'marked';
 import './AIResponseAlert.css';
 
 /**
- * Improved parser for message blocks.
- * It now handles unclosed code fences by treating any content after an opening "```"
- * (without a corresponding closing "```") as code.
+ * Utility functions for splitting text into code and non‐code blocks.
  */
 function parseMessageToBlocks(message) {
   const parts = [];
@@ -18,7 +16,6 @@ function parseMessageToBlocks(message) {
   while (currentIndex < message.length) {
     const startFence = message.indexOf("```", currentIndex);
     if (startFence === -1) {
-      // No more fences – add the rest as text.
       parts.push({ type: 'text', content: message.slice(currentIndex) });
       break;
     }
@@ -28,10 +25,8 @@ function parseMessageToBlocks(message) {
         content: message.slice(currentIndex, startFence)
       });
     }
-    // Look for the closing fence.
     const endFence = message.indexOf("```", startFence + 3);
     if (endFence === -1) {
-      // Unclosed code block – take the rest as code.
       parts.push({ type: 'code', content: message.slice(startFence) });
       break;
     } else {
@@ -45,18 +40,12 @@ function parseMessageToBlocks(message) {
   return parts;
 }
 
-/**
- * Extracts the language from a code fence.
- */
 function getLanguageFromFence(content) {
   const lines = content.split('\n');
   const firstLine = lines[0].replace(/```/, '').trim();
   return firstLine || 'javascript';
 }
 
-/**
- * Extracts the inner code (removing the fences) from the code block.
- */
 function getCodeContent(content) {
   return content.replace(/^```[\s\S]*?\n/, '').replace(/```$/, '');
 }
@@ -66,10 +55,8 @@ marked.setOptions({
   breaks: true,
 });
 
-const AIResponseAlert = ({ message }) => {
-  const [conversation, setConversation] = useState([
-    { sender: 'assistant', text: message }
-  ]);
+const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
+  const [conversation, setConversation] = useState([]);
   const [userInput, setUserInput] = useState('');
   const [containsMath, setContainsMath] = useState(false);
   const [theme, setTheme] = useState('light');
@@ -81,14 +68,32 @@ const AIResponseAlert = ({ message }) => {
 
   const iframeRef = useRef(null);
 
-  // Check for math content in any assistant message.
+  // Expose imperative methods to append a new query and update the AI response.
+  useImperativeHandle(ref, () => ({
+    appendUserQuery(query) {
+      setConversation(prev => [...prev, { sender: 'user', text: query }]);
+      setIsLoading(true);
+    },
+    updateLastAssistantResponse(response) {
+      setConversation(prev => [...prev, { sender: 'assistant', text: response }]);
+      setIsLoading(false);
+    }
+  }));
+
+  // On mount, if an initialQuery is provided, initialize the conversation.
+  useEffect(() => {
+    if (initialQuery) {
+      setConversation([{ sender: 'user', text: initialQuery }]);
+      setIsLoading(true);
+    }
+  }, [initialQuery]);
+
   useEffect(() => {
     const mathRegex = /(\$.*?\$|\\\(.*?\)|\\\[.*?\]|\\begin\{.*?\}[\s\S]*?\\end\{.*?\})/g;
     const hasMath = conversation.some((msg) => mathRegex.test(msg.text));
     setContainsMath(hasMath);
   }, [conversation]);
 
-  // When math is present, post the text to the iframe for rendering.
   useEffect(() => {
     if (containsMath && iframeRef.current && iframeRef.current.contentWindow) {
       iframeRef.current.onload = () => {
@@ -121,7 +126,7 @@ const AIResponseAlert = ({ message }) => {
 
   /** Opens the full chat in an extension popup. */
   const handleOpenInChat = () => {
-    chrome.runtime.sendMessage({ type: 'openChat', message: message });
+    chrome.runtime.sendMessage({ type: 'openChat', message: '' });
     handleClose();
   };
 
@@ -137,7 +142,7 @@ const AIResponseAlert = ({ message }) => {
       {
         type: 'continueChat',
         conversationHistory: updated,
-        continueId: null, // initial generation for follow-up
+        continueId: null,
       },
       (response) => {
         setIsLoading(false);
@@ -160,16 +165,12 @@ const AIResponseAlert = ({ message }) => {
 
   /**
    * Merges the appended response into the last assistant message.
-   * If the message ends with an open code block (i.e. odd number of "```"),
-   * then the new text is appended directly (after removing any redundant fence).
-   * Otherwise, a newline is added.
    */
   const mergeAssistantResponse = (existingText, appendedText) => {
     const fenceRegex = /```/g;
     const fenceMatches = existingText.match(fenceRegex);
     const fenceCount = fenceMatches ? fenceMatches.length : 0;
     if (fenceCount % 2 === 1) {
-      // We are inside an open code block.
       if (appendedText.trim().startsWith('```')) {
         appendedText = appendedText.trim().replace(/^```/, '');
       }
@@ -235,7 +236,6 @@ const AIResponseAlert = ({ message }) => {
 
   /**
    * Renders a single conversation message.
-   * Splits out code blocks and wraps them in a SyntaxHighlighter.
    */
   const renderMessage = (msg, index) => {
     const isUser = msg.sender === 'user';
@@ -279,7 +279,7 @@ const AIResponseAlert = ({ message }) => {
   const renderHeader = () => {
     return (
       <div className="alert-header drag-handle">
-        <span className="alert-title">ClickAI Response</span>
+        <span className="alert-title">ClickAI</span>
         <div className="header-buttons">
           <button className="dock-btn" onClick={toggleDock}>
             {isDocked ? 'Undock' : 'Dock'}
@@ -295,11 +295,7 @@ const AIResponseAlert = ({ message }) => {
     );
   };
 
-  /**
-   * Renders the conversation content.
-   * If a response is pending, displays the “AI is typing…” spinner.
-   * Otherwise, if a truncated answer remains, shows the continue button.
-   */
+  /** Renders the conversation content. */
   const renderContent = () => {
     return (
       <div className="alert-content" id="ai-response-content">
@@ -340,7 +336,7 @@ const AIResponseAlert = ({ message }) => {
       <div className="alert-footer">
         <input
           type="text"
-          placeholder="Ask a follow-up..."
+          placeholder="Ask a question..."
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -358,7 +354,6 @@ const AIResponseAlert = ({ message }) => {
 
   /**
    * Renders the alert window.
-   * In docked mode, the panel is wrapped in an Rnd that only allows horizontal resizing.
    */
   const renderWindow = () => {
     if (isDocked) {
@@ -421,6 +416,6 @@ const AIResponseAlert = ({ message }) => {
       {renderWindow()}
     </div>
   );
-};
+});
 
 export default AIResponseAlert;

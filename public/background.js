@@ -32,11 +32,10 @@ function handleCaptureText(info, tab) {
   if (info.selectionText) {
     const selectedText = info.selectionText;
     injectConsoleLog(tab.id, "Captured Text: " + selectedText);
-    displayLoadingAlert(tab.id, "Getting AI Response...");
-
+    sendNewUserQuery(tab.id, selectedText);
     sendTextToAI(tab.id, selectedText, (response) => {
       injectConsoleLog(tab.id, "AI Response: " + response);
-      updateCustomAlert(tab.id, `AI Response: ${response}`);
+      updateAIResponse(tab.id, response);
       chrome.runtime.sendMessage({ type: 'openChat', message: response });
     });
   } else {
@@ -48,11 +47,10 @@ function handleCaptureText(info, tab) {
       if (results && results[0] && results[0].result) {
         const selectedText = results[0].result;
         injectConsoleLog(tab.id, "Captured Text: " + selectedText);
-        displayLoadingAlert(tab.id, "Getting AI Response...");
-
+        sendNewUserQuery(tab.id, selectedText);
         sendTextToAI(tab.id, selectedText, (response) => {
           injectConsoleLog(tab.id, "AI Response: " + response);
-          updateCustomAlert(tab.id, `AI Response: ${response}`);
+          updateAIResponse(tab.id, response);
           chrome.runtime.sendMessage({ type: 'openChat', message: response });
         });
       } else {
@@ -116,11 +114,10 @@ function promptForAdditionalText(tabId, selectedText, callback) {
  */
 function handleTextCaptureWithPrompt(tabId, combinedText) {
   injectConsoleLog(tabId, "Captured Text with Prompt: " + combinedText);
-  displayLoadingAlert(tabId, "Getting AI Response...");
-
+  sendNewUserQuery(tabId, combinedText);
   sendTextToAI(tabId, combinedText, (response) => {
     injectConsoleLog(tab.id, "AI Response: " + response);
-    updateCustomAlert(tabId, `AI Response: ${response}`);
+    updateAIResponse(tabId, response);
     chrome.runtime.sendMessage({ type: 'openChat', message: response });
   });
 }
@@ -151,35 +148,38 @@ function sendTextToAI(tabId, text, callback) {
         callback(data.response);
       } else {
         injectConsoleLog(tabId, 'Error: No response from AI');
-        updateCustomAlert(tabId, 'Error: No response from AI');
+        updateAIResponse(tabId, 'Error: No response from AI');
       }
     })
     .catch(error => {
       console.error('Error sending text to AI:', error);
       injectConsoleLog(tabId, 'Error: Unable to contact AI server');
-      updateCustomAlert(tabId, 'Error: Unable to contact AI server');
+      updateAIResponse(tabId, 'Error: Unable to contact AI server');
     });
 }
 
 /**
- * Display & Update alert logic
+ * New functions to communicate with AIResponseAlert in content script
  */
-function displayLoadingAlert(tabId, message) {
+function sendNewUserQuery(tabId, query) {
   chrome.tabs.sendMessage(tabId, {
-    type: 'customAlert',
-    message: message,
+    type: 'newUserQuery',
+    query: query,
     loading: true
   });
 }
 
-function updateCustomAlert(tabId, message) {
+function updateAIResponse(tabId, response) {
   chrome.tabs.sendMessage(tabId, {
-    type: 'customAlert',
-    message: message,
+    type: 'updateAIResponse',
+    response: response,
     loading: false
   });
 }
 
+/**
+ * Display & Update alert logic (legacy, kept for error alerts)
+ */
 function displayCustomAlert(tabId, message) {
   chrome.tabs.sendMessage(tabId, {
     type: 'customAlert',
@@ -211,7 +211,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'popupOpened') {
     clearBadge();
   }
-  // Handle continued conversation and follow-up messages
   if (request.type === 'continueChat') {
     fetch('http://localhost:5010/generate', {
       method: 'POST',
@@ -237,7 +236,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.error('Error in continueChat fetch:', err);
         sendResponse({ error: 'Unable to contact AI server' });
       });
-    // Return true to indicate async response
     return true;
   }
 });
