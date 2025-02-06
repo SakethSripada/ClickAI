@@ -1,67 +1,25 @@
 /*****************************************************
  * src/AIResponseAlert.js
- * 
+ *
  * This React component renders the main chat UI window.
  * It supports message rendering, code syntax highlighting,
  * math rendering via an iframe sandbox, docking/resizing,
- * theme switching, and continuous chat.
+ * theme switching, continuous chat, and "Continue Generating"
+ * functionality for incomplete responses.
+ *
+ * Now using Material UI as the base for a gorgeous, fully
+ * responsive, animated UI – while keeping all the same logic.
  *****************************************************/
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Rnd } from 'react-rnd';
-import { FaTimes, FaSpinner, FaCut } from 'react-icons/fa';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { marked } from 'marked';
-import './AIResponseAlert.css';
-
-// Utility function to split message into blocks using triple backticks
-function parseMessageToBlocks(message) {
-  const parts = [];
-  let currentIndex = 0;
-  while (currentIndex < message.length) {
-    const startFence = message.indexOf("```", currentIndex);
-    if (startFence === -1) {
-      parts.push({ type: 'text', content: message.slice(currentIndex) });
-      break;
-    }
-    if (startFence > currentIndex) {
-      parts.push({
-        type: 'text',
-        content: message.slice(currentIndex, startFence)
-      });
-    }
-    const endFence = message.indexOf("```", startFence + 3);
-    if (endFence === -1) {
-      parts.push({ type: 'code', content: message.slice(startFence) });
-      break;
-    } else {
-      parts.push({
-        type: 'code',
-        content: message.slice(startFence, endFence + 3)
-      });
-      currentIndex = endFence + 3;
-    }
-  }
-  return parts;
-}
-
-function getLanguageFromFence(content) {
-  const lines = content.split('\n');
-  const firstLine = lines[0].replace(/```/, '').trim();
-  return firstLine || 'javascript';
-}
-
-function getCodeContent(content) {
-  return content.replace(/^```[\s\S]*?\n/, '').replace(/```$/, '');
-}
-
-// Configure marked to render non-code text with breaks.
-marked.setOptions({
-  breaks: true,
-});
+import { Box, Paper } from '@mui/material';
+import ChatHeader from './ChatHeader';
+import ChatContent from './ChatContent';
+import ChatFooter from './ChatFooter';
 
 const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
+  // STATES
   const [conversation, setConversation] = useState([]);
   const [userInput, setUserInput] = useState('');
   const [containsMath, setContainsMath] = useState(false);
@@ -71,19 +29,18 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
   const [continueId, setContinueId] = useState(null);
   const [isContinued, setIsContinued] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
   const iframeRef = useRef(null);
 
   // Expose imperative methods to append a new query and update the AI response.
   useImperativeHandle(ref, () => ({
     appendUserQuery(query) {
-      setConversation(prev => [...prev, { sender: 'user', text: query }]);
+      setConversation((prev) => [...prev, { sender: 'user', text: query }]);
       setIsLoading(true);
     },
     updateLastAssistantResponse(response) {
-      setConversation(prev => [...prev, { sender: 'assistant', text: response }]);
+      setConversation((prev) => [...prev, { sender: 'assistant', text: response }]);
       setIsLoading(false);
-    }
+    },
   }));
 
   // On mount, if an initialQuery is provided
@@ -118,6 +75,7 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     }
   }, [containsMath, conversation]);
 
+  // Close handler: gracefully unmount the React root from the DOM.
   const handleClose = () => {
     const existingAlert = document.querySelector('#react-root');
     if (existingAlert) {
@@ -145,11 +103,17 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
       (response) => {
         setIsLoading(false);
         if (response && response.response) {
-          setConversation(prev => [...prev, { sender: 'assistant', text: response.response }]);
+          setConversation((prev) => [
+            ...prev,
+            { sender: 'assistant', text: response.response },
+          ]);
           setContinueId(response.id || null);
           setIsContinued(response.isContinued || false);
         } else {
-          setConversation(prev => [...prev, { sender: 'assistant', text: 'Error: No response from AI.' }]);
+          setConversation((prev) => [
+            ...prev,
+            { sender: 'assistant', text: 'Error: No response from AI.' },
+          ]);
         }
       }
     );
@@ -160,12 +124,12 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     const fenceMatches = existingText.match(fenceRegex);
     const fenceCount = fenceMatches ? fenceMatches.length : 0;
     if (fenceCount % 2 === 1) {
-      if (appendedText.trim().startsWith("```")) {
+      if (appendedText.trim().startsWith('```')) {
         appendedText = appendedText.trim().replace(/^```/, '');
       }
       return existingText + appendedText;
     } else {
-      return existingText + "\n" + appendedText;
+      return existingText + '\n' + appendedText;
     }
   };
 
@@ -180,7 +144,7 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
       (response) => {
         setIsLoading(false);
         if (response && response.response) {
-          setConversation(prev => {
+          setConversation((prev) => {
             const lastIndex = prev.length - 1;
             const lastMsg = prev[lastIndex];
             if (lastMsg.sender === 'assistant') {
@@ -194,7 +158,10 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
           setContinueId(response.id || null);
           setIsContinued(response.isContinued || false);
         } else {
-          setConversation(prev => [...prev, { sender: 'assistant', text: 'Error: No response from AI.' }]);
+          setConversation((prev) => [
+            ...prev,
+            { sender: 'assistant', text: 'Error: No response from AI.' },
+          ]);
           setContinueId(null);
           setIsContinued(false);
         }
@@ -209,23 +176,23 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
   };
 
   const toggleDock = () => {
-    setIsDocked(prev => {
+    setIsDocked((prev) => {
       const newDockState = !prev;
       if (newDockState) {
-        document.body.classList.add("ai-docked-mode");
+        document.body.classList.add('ai-docked-mode');
         document.body.style.marginRight = `${dockedWidth}px`;
-        document.documentElement.style.setProperty("--docked-width", `${dockedWidth}px`);
+        document.documentElement.style.setProperty('--docked-width', `${dockedWidth}px`);
       } else {
-        document.body.classList.remove("ai-docked-mode");
-        document.body.style.marginRight = "";
-        document.documentElement.style.setProperty("--docked-width", "0px");
+        document.body.classList.remove('ai-docked-mode');
+        document.body.style.marginRight = '';
+        document.documentElement.style.setProperty('--docked-width', '0px');
       }
       return newDockState;
     });
   };
 
   const toggleTheme = () => {
-    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
   const handleSnip = () => {
@@ -234,100 +201,24 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     }
   };
 
-  const renderMessage = (msg, index) => {
-    const isUser = msg.sender === 'user';
-    const blocks = parseMessageToBlocks(msg.text);
-    return (
-      <div key={index} className={`message-row ${isUser ? 'message-user' : 'message-assistant'}`}>
-        <div className="message-bubble">
-          {blocks.map((block, i) => {
-            if (block.type === 'code') {
-              const lang = getLanguageFromFence(block.content);
-              const pureCode = getCodeContent(block.content);
-              return (
-                <div key={i} className="code-block-container">
-                  <button className="copy-button" onClick={() => handleCopyCode(pureCode)}>Copy</button>
-                  <SyntaxHighlighter language={lang} style={oneDark}>
-                    {pureCode}
-                  </SyntaxHighlighter>
-                </div>
-              );
-            } else {
-              const html = marked.parse(block.content || '');
-              return <div key={i} dangerouslySetInnerHTML={{ __html: html }} />;
-            }
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  const renderHeader = () => {
-    return (
-      <div className="alert-header drag-handle">
-        <span className="alert-title">ClickAI</span>
-        <div className="header-buttons">
-          <button className="dock-btn" onClick={toggleDock}>{isDocked ? 'Undock' : 'Dock'}</button>
-          <button className="theme-btn" onClick={toggleTheme}>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</button>
-          <button className="snip-btn" onClick={handleSnip} title="Capture Area"><FaCut /></button>
-          <button className="alert-close-btn" onClick={handleClose}><FaTimes /></button>
-        </div>
-      </div>
-    );
-  };
-
-  const renderContent = () => {
-    return (
-      <div className="alert-content" id="ai-response-content">
-        {conversation.map((msg, i) => renderMessage(msg, i))}
-        {isLoading ? (
-          <div className="typing-indicator">
-            <FaSpinner className="spinner" /> AI is typing...
-          </div>
-        ) : (
-          isContinued && (
-            <div className="continue-container">
-              <button className="continue-btn" onClick={handleContinueGenerating} disabled={isLoading}>
-                Continue Generating
-              </button>
-            </div>
-          )
-        )}
-        {containsMath && (
-          <iframe
-            ref={iframeRef}
-            title="MathJax Sandbox"
-            src={chrome.runtime.getURL('sandbox.html')}
-            className="math-iframe"
-            sandbox="allow-scripts allow-same-origin"
-          />
-        )}
-      </div>
-    );
-  };
-
-  const renderFooter = () => {
-    return (
-      <div className="alert-footer">
-        <input
-          type="text"
-          placeholder="Ask a question..."
-          value={userInput}
-          onChange={(e) => setUserInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-          className="alert-input"
-        />
-        <button className="alert-btn primary-btn" onClick={handleSendMessage}>Send</button>
-      </div>
-    );
-  };
-
+  // Render the full window using react-rnd.
   const renderWindow = () => {
+    const commonPaperStyles = {
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      overflow: 'hidden',
+      borderRadius: isDocked ? 0 : 8,
+    };
+
     if (isDocked) {
       return (
         <Rnd
           size={{ width: dockedWidth, height: window.innerHeight }}
-          position={{ x: Math.round(window.innerWidth - dockedWidth), y: 0 }}
+          position={{
+            x: Math.round(window.innerWidth - dockedWidth),
+            y: 0,
+          }}
           minWidth={300}
           maxWidth={800}
           disableDragging={true}
@@ -338,16 +229,36 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
             setDockedWidth(newWidth);
             if (isDocked) {
               document.body.style.marginRight = `${newWidth}px`;
-              document.documentElement.style.setProperty("--docked-width", `${newWidth}px`);
+              document.documentElement.style.setProperty('--docked-width', `${newWidth}px`);
             }
           }}
-          className="docked-rnd"
+          style={{ pointerEvents: 'all', zIndex: 1500 }}
         >
-          <div className="alert-window docked">
-            {renderHeader()}
-            {renderContent()}
-            {renderFooter()}
-          </div>
+          <Paper sx={commonPaperStyles} elevation={6}>
+            <ChatHeader
+              theme={theme}
+              isDocked={isDocked}
+              toggleDock={toggleDock}
+              toggleTheme={toggleTheme}
+              handleSnip={handleSnip}
+              handleClose={handleClose}
+            />
+            <ChatContent
+              conversation={conversation}
+              isLoading={isLoading}
+              isContinued={isContinued}
+              containsMath={containsMath}
+              theme={theme}
+              iframeRef={iframeRef}
+              handleContinueGenerating={handleContinueGenerating}
+            />
+            <ChatFooter
+              userInput={userInput}
+              setUserInput={setUserInput}
+              handleSendMessage={handleSendMessage}
+              theme={theme}
+            />
+          </Paper>
         </Rnd>
       );
     }
@@ -372,21 +283,52 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
           bottomLeft: true,
           topLeft: true,
         }}
-        className="alert-rnd-container"
+        style={{ pointerEvents: 'all', zIndex: 1500 }}
       >
-        <div className="alert-window">
-          {renderHeader()}
-          {renderContent()}
-          {renderFooter()}
-        </div>
+        <Paper sx={commonPaperStyles} elevation={6}>
+          <ChatHeader
+            theme={theme}
+            isDocked={isDocked}
+            toggleDock={toggleDock}
+            toggleTheme={toggleTheme}
+            handleSnip={handleSnip}
+            handleClose={handleClose}
+          />
+          <ChatContent
+            conversation={conversation}
+            isLoading={isLoading}
+            isContinued={isContinued}
+            containsMath={containsMath}
+            theme={theme}
+            iframeRef={iframeRef}
+            handleContinueGenerating={handleContinueGenerating}
+          />
+          <ChatFooter
+            userInput={userInput}
+            setUserInput={setUserInput}
+            handleSendMessage={handleSendMessage}
+            theme={theme}
+          />
+        </Paper>
       </Rnd>
     );
   };
 
   return (
-    <div className="airesponse-container" data-theme={theme}>
+    <Box
+      sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 2000,
+        pointerEvents: 'none',
+      }}
+      data-theme={theme}
+    >
       {renderWindow()}
-    </div>
+    </Box>
   );
 });
 

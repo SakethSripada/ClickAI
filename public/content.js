@@ -6,11 +6,13 @@
  * and now also processes snipped images using Tesseract OCR.
  *****************************************************/
 import React from 'react';
+import ReactDOM from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import AIResponseAlert from '../src/AIResponseAlert';
 import PromptBox from '../src/PromptBox';
 import SnippingTool from '../src/SnippingTool';
 import Tesseract from 'tesseract.js'; // Import Tesseract OCR
+import { AiOutlineMessage } from 'react-icons/ai'; 
 
 // Global references to the alert container and its React ref
 let aiResponseAlertRoot = null;
@@ -55,7 +57,9 @@ function injectFloatingButton() {
 
   const btn = document.createElement('button');
   btn.id = 'ai-float-btn';
-  btn.innerText = '💬';
+  const btnRoot = createRoot(btn);
+  btnRoot.render(<AiOutlineMessage size={28} color="white" />);
+
   btn.onclick = () => {
     if (!document.getElementById('react-root')) {
       createAIResponseAlert();
@@ -64,32 +68,39 @@ function injectFloatingButton() {
 
   document.body.appendChild(btn);
 
-  // Apply styles
   const style = document.createElement('style');
   style.innerHTML = `
     #ai-float-btn {
       position: fixed;
-      bottom: 10px;
-      right: 10px;
-      width: 25px;
-      height: 25px;
-      background-color: #4CAF50;
+      bottom: 20px;
+      right: 20px;
+      width: 55px;
+      height: 55px;
+      background: linear-gradient(135deg, #007BFF, #0056b3);
       color: white;
       border: none;
       border-radius: 50%;
-      font-size: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-      transition: background 0.3s, transform 0.2s;
+      box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease-in-out;
       z-index: 999999;
     }
     
     #ai-float-btn:hover {
-      background: #45a049;
+      background: linear-gradient(135deg, #FF7B00, #FF4500);
       transform: scale(1.1);
+    }
+
+    #ai-float-btn:active {
+      transform: scale(0.95);
+    }
+
+    #ai-float-btn svg {
+      width: 30px;
+      height: 30px;
     }
   `;
   document.head.appendChild(style);
