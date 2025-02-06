@@ -1,8 +1,8 @@
 /*****************************************************
  * src/MessageBubble.js
  *
- * Renders an individual message bubble. It supports
- * both text and code blocks.
+ * Renders an individual message bubble with enhanced styling.
+ * Supports both text and code blocks.
  *****************************************************/
 import React from 'react';
 import { Box, Paper } from '@mui/material';
@@ -16,30 +16,30 @@ const MessageBubble = ({ message, theme }) => {
   const blocks = parseMessageToBlocks(message.text);
 
   return (
-    <Slide direction="up" in={true} mountOnEnter unmountOnExit timeout={300}>
+    <Slide direction="up" in={true} mountOnEnter unmountOnExit timeout={250}>
       <Box
         sx={{
           display: 'flex',
           justifyContent: isUser ? 'flex-end' : 'flex-start',
-          mb: 1,
+          mb: 1.5,
         }}
       >
         <Paper
-          elevation={3}
+          elevation={4}
           sx={{
-            maxWidth: '70%',
-            px: 2,
-            py: 1,
-            borderRadius: 12,
-            backgroundColor: isUser
+            maxWidth: '75%',
+            px: 2.5,
+            py: 0.75,
+            borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+            background: isUser
               ? theme === 'light'
-                ? '#e0f7e9'
-                : '#356c42'
+                ? 'linear-gradient(135deg, #daf5df, #c3e6cb)'
+                : 'linear-gradient(135deg, #295f3a, #214d2d)'
               : theme === 'light'
-              ? '#e7f4ff'
-              : '#3a5363',
-            color: theme === 'light' ? '#333' : '#eee',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              ? 'linear-gradient(135deg, #d9ebff, #b6daff)'
+              : 'linear-gradient(135deg, #2b4358, #1f3447)',
+            color: theme === 'light' ? '#222' : '#f0f0f0',
+            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.12)',
             wordBreak: 'break-word',
           }}
         >
@@ -62,7 +62,7 @@ const MessageBubble = ({ message, theme }) => {
               return (
                 <Box
                   key={i}
-                  sx={{ mt: i === 0 ? 0 : 0.5 }}
+                  sx={{ mt: i === 0 ? 0 : 0.75 }}
                   dangerouslySetInnerHTML={{ __html: html }}
                 />
               );

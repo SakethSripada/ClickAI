@@ -61,7 +61,12 @@ function injectFloatingButton() {
   btnRoot.render(<AiOutlineMessage size={28} color="white" />);
 
   btn.onclick = () => {
-    if (!document.getElementById('react-root')) {
+    const existingChat = document.getElementById('react-root');
+    if (existingChat) {
+      // If AI chat is open, close it
+      removeExistingAlert();
+    } else {
+      // If AI chat is closed, open it
       createAIResponseAlert();
     }
   };
