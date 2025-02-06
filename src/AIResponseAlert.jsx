@@ -4,7 +4,8 @@
  * This React component renders the main chat UI window.
  * It supports message rendering, code syntax highlighting,
  * math rendering via an iframe sandbox, docking/resizing,
- * theme switching, and continuous chat.
+ * theme switching, continuous chat, and "Continue Generating"
+ * functionality for incomplete responses.
  *
  * Now using Material UI as the base for a gorgeous, fully
  * responsive, animated UI – while keeping all the same logic.
@@ -147,17 +148,11 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
             const lastIndex = prev.length - 1;
             const lastMsg = prev[lastIndex];
             if (lastMsg.sender === 'assistant') {
-              const mergedText = mergeAssistantResponse(
-                lastMsg.text,
-                response.response
-              );
+              const mergedText = mergeAssistantResponse(lastMsg.text, response.response);
               const updatedMsg = { ...lastMsg, text: mergedText };
               return [...prev.slice(0, lastIndex), updatedMsg];
             } else {
-              return [
-                ...prev,
-                { sender: 'assistant', text: response.response },
-              ];
+              return [...prev, { sender: 'assistant', text: response.response }];
             }
           });
           setContinueId(response.id || null);
@@ -251,9 +246,11 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
             <ChatContent
               conversation={conversation}
               isLoading={isLoading}
+              isContinued={isContinued}
               containsMath={containsMath}
               theme={theme}
               iframeRef={iframeRef}
+              handleContinueGenerating={handleContinueGenerating}
             />
             <ChatFooter
               userInput={userInput}
@@ -300,9 +297,11 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
           <ChatContent
             conversation={conversation}
             isLoading={isLoading}
+            isContinued={isContinued}
             containsMath={containsMath}
             theme={theme}
             iframeRef={iframeRef}
+            handleContinueGenerating={handleContinueGenerating}
           />
           <ChatFooter
             userInput={userInput}

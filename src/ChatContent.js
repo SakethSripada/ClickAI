@@ -1,14 +1,24 @@
 /*****************************************************
  * src/ChatContent.js
  *
- * Renders the chat conversation (message bubbles) and
- * a plain loading indicator when AI is typing.
+ * Renders the chat conversation (message bubbles), a plain
+ * loading indicator when AI is typing, and a "Continue Generating"
+ * button if the response is incomplete.
  *****************************************************/
 import React from 'react';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress, Typography, Button } from '@mui/material';
+import { FaArrowCircleDown } from 'react-icons/fa';
 import MessageBubble from './MessageBubble';
 
-const ChatContent = ({ conversation, isLoading, containsMath, theme, iframeRef }) => {
+const ChatContent = ({
+  conversation,
+  isLoading,
+  isContinued,
+  containsMath,
+  theme,
+  iframeRef,
+  handleContinueGenerating,
+}) => {
   return (
     <Box
       id="ai-response-content"
@@ -34,6 +44,31 @@ const ChatContent = ({ conversation, isLoading, containsMath, theme, iframeRef }
         >
           <CircularProgress size={16} />
           <Typography variant="body2">AI is typing...</Typography>
+        </Box>
+      )}
+      {isContinued && !isLoading && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            mt: 1,
+            mb: 1,
+          }}
+        >
+          <Button
+            variant="contained"
+            onClick={handleContinueGenerating}
+            startIcon={<FaArrowCircleDown />}
+            sx={{
+              textTransform: 'none',
+              backgroundColor: theme === 'light' ? '#7f72f0' : '#555',
+              '&:hover': {
+                backgroundColor: theme === 'light' ? '#6a5fd6' : '#666',
+              },
+            }}
+          >
+            Continue Generating
+          </Button>
         </Box>
       )}
       {containsMath && (
