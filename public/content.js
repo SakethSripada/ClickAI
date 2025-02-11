@@ -47,10 +47,15 @@ function createAIResponseAlert(initialQuery = "") {
   window.aiResponseAlertRef = React.createRef();
   aiResponseAlertRoot = createRoot(alertBox);
   aiResponseAlertRoot.render(<AIResponseAlert ref={window.aiResponseAlertRef} initialQuery={initialQuery} />);
+  // Hide the floating button since the chat window is open
+  const floatBtn = document.getElementById('ai-float-btn');
+  if (floatBtn) {
+    floatBtn.style.display = 'none';
+  }
 }
 
 /**
- * Injects a floating button on all web pages for opening AIResponseAlert.
+ * Injects a floating button on all web pages for opening/closing AIResponseAlert.
  */
 function injectFloatingButton() {
   if (document.getElementById('ai-float-btn')) return; // Prevent duplicates
@@ -61,8 +66,15 @@ function injectFloatingButton() {
   btnRoot.render(<AiOutlineMessage size={28} color="white" />);
 
   btn.onclick = () => {
-    if (!document.getElementById('react-root')) {
+    const existingAlert = document.querySelector('#react-root');
+    if (existingAlert) {
+      // If the chat window is already open, close it
+      removeExistingAlert();
+    } else {
+      // Otherwise, open the chat window
       createAIResponseAlert();
+      // Hide the floating button while chat window is open
+      btn.style.display = 'none';
     }
   };
 
@@ -231,32 +243,25 @@ function dataURLtoBlob(dataurl) {
 */
 
 /**
- * Injects the floating button when the script runs.
+ * Removes any existing AI alert from the DOM and shows the floating button.
  */
-injectFloatingButton();
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'newUserQuery') {
-    renderOrAppendQuery(request.query);
-  } else if (request.type === 'updateAIResponse') {
-    if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-      window.aiResponseAlertRef.current.updateLastAssistantResponse(request.response);
+function removeExistingAlert() {
+  const existingAlert = document.querySelector('#react-root');
+  if (existingAlert) {
+    try {
+      const root = createRoot(existingAlert);
+      root.unmount();
+    } catch (e) {
+      // Ignore errors during unmount
     }
-  } else if (request.type === 'showPrompt') {
-    renderPromptBox(request.selectedText, sendResponse);
-    // Return true to handle async sendResponse in React
-    return true;
-  } else if (request.type === 'openChat') {
-    chrome.storage.local.set({ aiMessage: request.message }, () => {
-      highlightExtensionIcon();
-    });
-  } else if (request.type === 'popupOpened') {
-    clearBadge();
-  } else if (request.type === 'captureArea') {
-    // Trigger snipping tool from context menu
-    launchSnippingTool();
+    document.body.removeChild(existingAlert);
   }
-});
+  // Show floating button again
+  const floatBtn = document.getElementById('ai-float-btn');
+  if (floatBtn) {
+    floatBtn.style.display = 'block';
+  }
+}
 
 /**
  * Renders the prompt box for additional text when required.
@@ -279,22 +284,6 @@ function renderPromptBox(selectedText, sendResponse) {
       }}
     />
   );
-}
-
-/**
- * Removes any existing AI alert from the DOM.
- */
-function removeExistingAlert() {
-  const existingAlert = document.querySelector('#react-root');
-  if (existingAlert) {
-    try {
-      const root = createRoot(existingAlert);
-      root.unmount();
-    } catch (e) {
-      // Ignore errors during unmount
-    }
-    document.body.removeChild(existingAlert);
-  }
 }
 
 /**
@@ -364,3 +353,6 @@ export {
   updateAIResponse,
   injectConsoleLog
 };
+
+// Inject the floating button when the script runs
+injectFloatingButton();

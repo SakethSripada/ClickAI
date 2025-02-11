@@ -83,6 +83,11 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
         const root = createRoot(existingAlert);
         root.unmount();
         document.body.removeChild(existingAlert);
+        // Show the floating button when chat window is closed
+        const floatBtn = document.getElementById('ai-float-btn');
+        if (floatBtn) {
+          floatBtn.style.display = 'block';
+        }
       }, 100);
     }
   };
