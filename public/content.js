@@ -8,9 +8,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import AIResponseAlert from '../src/AIResponseAlert';
-import PromptBox from '../src/PromptBox';
-import SnippingTool from '../src/SnippingTool';
+import AIResponseAlert from '../src/Components/AIResponseAlert';
+import PromptBox from '../src/Components/PromptBox';
+import SnippingTool from '../src/Components/SnippingTool';
 import Tesseract from 'tesseract.js'; // Import Tesseract OCR
 import { AiOutlineMessage } from 'react-icons/ai'; 
 

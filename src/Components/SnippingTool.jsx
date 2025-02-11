@@ -7,7 +7,7 @@
  * is passed to the provided onComplete callback.
  *****************************************************/
 import React, { useState, useEffect, useRef } from 'react';
-import './SnippingTool.css';
+import './Styles/SnippingTool.css';
 
 const SnippingTool = ({ onComplete, onCancel }) => {
   const [screenshot, setScreenshot] = useState(null);

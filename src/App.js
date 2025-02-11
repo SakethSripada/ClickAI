@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import AIResponseAlert from './AIResponseAlert';
+import AIResponseAlert from './Components/AIResponseAlert';
 import './App.css';
 
 function App() {

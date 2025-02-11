@@ -8,7 +8,7 @@ import { Box, IconButton } from '@mui/material';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { FaCopy } from 'react-icons/fa';
-import { getLanguageFromFence, getCodeContent } from './utils';
+import { getLanguageFromFence, getCodeContent } from '../utils';
 
 const CodeBlock = ({ content, theme, onCopy }) => {
   const lang = getLanguageFromFence(content);

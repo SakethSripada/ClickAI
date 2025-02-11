@@ -7,7 +7,7 @@
 import React from 'react';
 import { Box, Paper } from '@mui/material';
 import { Slide } from '@mui/material';
-import { parseMessageToBlocks } from './utils';
+import { parseMessageToBlocks } from '../utils';
 import CodeBlock from './CodeBlock';
 import { marked } from 'marked';
 
