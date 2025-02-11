@@ -46,7 +46,7 @@ const ChatHeader = ({ theme, isDocked, toggleDock, toggleTheme, handleSnip, hand
             gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, auto)' },
             gap: 1,
             justifyContent: 'center',
-            mb: 1, // Added margin-bottom for extra space under the buttons
+            mb: 1,
           }}
         >
           <Button

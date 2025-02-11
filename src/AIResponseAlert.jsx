@@ -175,6 +175,14 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     });
   };
 
+  // This is the key change for snipping mode: when the camera icon is clicked,
+  // handleSnip is called, which in turn calls window.launchSnippingTool (defined in content.js)
+  const handleSnip = () => {
+    if (window.launchSnippingTool) {
+      window.launchSnippingTool();
+    }
+  };
+
   const toggleDock = () => {
     setIsDocked((prev) => {
       const newDockState = !prev;
@@ -195,10 +203,9 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  const handleSnip = () => {
-    if (window.launchSnippingTool) {
-      window.launchSnippingTool();
-    }
+  const handleSnipFromHeader = () => {
+    // Optional: If you want to do any additional logging or UI changes
+    handleSnip();
   };
 
   // Render the full window using react-rnd.

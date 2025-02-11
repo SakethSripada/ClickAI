@@ -210,7 +210,7 @@ function dataURLtoBlob(dataurl) {
 //   formData.append('file', blob, 'image.png');
 //   // Optionally, add conversationHistory as JSON string if needed.
 //   formData.append('conversationHistory', JSON.stringify([{ sender: 'user', text: '[Image Input]' }]));
-
+//
 //   fetch('http://localhost:5010/generate', {
 //     method: 'POST',
 //     body: formData,
@@ -353,6 +353,8 @@ function updateAIResponse(tabId, response) {
     loading: false
   });
 }
+
+window.launchSnippingTool = launchSnippingTool;
 
 export {
   renderOrAppendQuery,
