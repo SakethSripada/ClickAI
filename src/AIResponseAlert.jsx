@@ -273,6 +273,7 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
         minWidth={300}
         minHeight={200}
         bounds="window"
+        dragHandleClassName="chat-header-drag-handle"
         enableResizing={{
           top: true,
           right: true,

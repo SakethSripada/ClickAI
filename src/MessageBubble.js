@@ -41,6 +41,7 @@ const MessageBubble = ({ message, theme }) => {
             color: theme === 'light' ? '#333' : '#eee',
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             wordBreak: 'break-word',
+            userSelect: 'text'
           }}
         >
           {blocks.map((block, i) => {

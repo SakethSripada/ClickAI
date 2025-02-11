@@ -27,6 +27,7 @@ const ChatContent = ({
         p: 1,
         overflowY: 'auto',
         backgroundColor: theme === 'light' ? '#f9f9f9' : '#2e2e2e',
+        userSelect: 'text'
       }}
     >
       {conversation.map((msg, i) => (

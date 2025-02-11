@@ -12,7 +12,8 @@ import { FaTimes, FaCamera, FaMoon, FaSun } from 'react-icons/fa';
 const ChatHeader = ({ theme, isDocked, toggleDock, toggleTheme, handleSnip, handleClose }) => {
   return (
     <AppBar
-      position="static"
+      position="static" 
+      className="chat-header-drag-handle"
       sx={{
         background: theme === 'light'
           ? 'linear-gradient(135deg, #7f72f0, #3aa0ff)'
