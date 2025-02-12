@@ -57,7 +57,9 @@ const ChatContent = ({
           }}
         >
           <CircularProgress size={16} />
-          <Typography variant="body2">AI is typing...</Typography>
+          <Typography variant="body2" sx={{ color: theme === 'light' ? 'inherit' : '#fff' }}>
+            AI is typing...
+          </Typography>
         </Box>
       )}
       {isContinued && !isLoading && (

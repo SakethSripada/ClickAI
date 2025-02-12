@@ -28,6 +28,9 @@ const ChatFooter = ({ userInput, setUserInput, handleSendMessage, theme }) => {
         onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
         variant="outlined"
         size="small"
+        InputProps={{
+          style: { color: theme === 'light' ? '#000' : '#fff' },
+        }}
         sx={{
           backgroundColor: theme === 'light' ? '#fff' : '#2e2e2e',
           '& .MuiOutlinedInput-root': {
