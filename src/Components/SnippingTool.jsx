@@ -84,7 +84,7 @@ const SnippingTool = ({ onComplete, onCancel }) => {
       className="snipping-overlay"
       style={{ backgroundImage: screenshot ? `url(${screenshot})` : 'none' }}
     >
-      {!screenshot && <div className="loading">Loading screenshot...</div>}
+      {!screenshot && <div className="loading"></div>}
       <div
         className="snipping-selection-overlay"
         ref={overlayRef}
