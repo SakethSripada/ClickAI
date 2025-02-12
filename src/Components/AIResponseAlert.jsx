@@ -15,7 +15,7 @@ import { createRoot } from 'react-dom/client';
 import { Rnd } from 'react-rnd';
 import { Box, Paper } from '@mui/material';
 import ChatHeader from './ChatHeader';
-import ChatContent from './ChatContent';
+import ChatContent from './ChatContent'; // Updated to auto-scroll on new messages
 import ChatFooter from './ChatFooter';
 
 const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {

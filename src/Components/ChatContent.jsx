@@ -5,7 +5,7 @@
  * loading indicator when AI is typing, and a "Continue Generating"
  * button if the response is incomplete.
  *****************************************************/
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Box, CircularProgress, Typography, Button } from '@mui/material';
 import { FaArrowCircleDown } from 'react-icons/fa';
 import MessageBubble from './MessageBubble';
@@ -19,15 +19,28 @@ const ChatContent = ({
   iframeRef,
   handleContinueGenerating,
 }) => {
+  const contentRef = useRef(null);
+
+  // Auto-scroll to the bottom whenever the conversation updates
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTo({
+        top: contentRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [conversation]);
+
   return (
     <Box
       id="ai-response-content"
+      ref={contentRef}
       sx={{
         flex: 1,
         p: 1,
         overflowY: 'auto',
         backgroundColor: theme === 'light' ? '#f9f9f9' : '#2e2e2e',
-        userSelect: 'text'
+        userSelect: 'text',
       }}
     >
       {conversation.map((msg, i) => (
