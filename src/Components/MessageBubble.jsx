@@ -15,6 +15,11 @@ const MessageBubble = ({ message, theme }) => {
   const isUser = message.sender === 'user';
   const blocks = parseMessageToBlocks(message.text);
 
+  // Define different border radii for user vs. assistant messages to simulate a chat bubble tail.
+  // For user messages (right-aligned): make the bottom-right corner less rounded.
+  // For assistant messages (left-aligned): make the bottom-left corner less rounded.
+  const bubbleBorderRadius = isUser ? '16px 16px 2px 16px' : '16px 16px 16px 2px';
+
   return (
     <Slide direction="up" in={true} mountOnEnter unmountOnExit timeout={300}>
       <Box
@@ -30,7 +35,7 @@ const MessageBubble = ({ message, theme }) => {
             maxWidth: '70%',
             px: 2,
             py: 1,
-            borderRadius: 12,
+            borderRadius: bubbleBorderRadius,
             backgroundColor: isUser
               ? theme === 'light'
                 ? '#e0f7e9'
@@ -41,7 +46,7 @@ const MessageBubble = ({ message, theme }) => {
             color: theme === 'light' ? '#333' : '#eee',
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             wordBreak: 'break-word',
-            userSelect: 'text'
+            userSelect: 'text',
           }}
         >
           {blocks.map((block, i) => {

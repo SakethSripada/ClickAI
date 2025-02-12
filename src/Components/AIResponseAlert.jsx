@@ -75,8 +75,14 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     }
   }, [containsMath, conversation]);
 
-  // Close handler: gracefully unmount the React root from the DOM.
+  // Close handler: gracefully unmount the React root from the DOM
+  // and restore the page's width to its original state.
   const handleClose = () => {
+    // Remove docking modifications to restore page layout
+    document.body.classList.remove('ai-docked-mode');
+    document.body.style.marginRight = '';
+    document.documentElement.style.setProperty('--docked-width', '0px');
+
     const existingAlert = document.querySelector('#react-root');
     if (existingAlert) {
       setTimeout(() => {
