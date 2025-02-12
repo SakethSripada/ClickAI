@@ -6,7 +6,6 @@
  * and now also processes snipped images using Tesseract OCR.
  *****************************************************/
 import React from 'react';
-import ReactDOM from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import AIResponseAlert from '../src/Components/AIResponseAlert';
 import PromptBox from '../src/Components/PromptBox';
@@ -342,6 +341,30 @@ function updateAIResponse(tabId, response) {
     loading: false
   });
 }
+
+// Listen for messages from the extension
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'newUserQuery') {
+    renderOrAppendQuery(request.query);
+  } else if (request.type === 'updateAIResponse') {
+    if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+      window.aiResponseAlertRef.current.updateLastAssistantResponse(request.response);
+    }
+  } else if (request.type === 'showPrompt') {
+    renderPromptBox(request.selectedText, sendResponse);
+    // Return true to handle async sendResponse in React
+    return true;
+  } else if (request.type === 'openChat') {
+    chrome.storage.local.set({ aiMessage: request.message }, () => {
+      highlightExtensionIcon();
+    });
+  } else if (request.type === 'popupOpened') {
+    clearBadge();
+  } else if (request.type === 'captureArea') {
+    // Trigger snipping tool from context menu
+    launchSnippingTool();
+  }
+});
 
 window.launchSnippingTool = launchSnippingTool;
 

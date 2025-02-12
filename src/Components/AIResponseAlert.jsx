@@ -180,8 +180,7 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     });
   };
 
-  // This is the key change for snipping mode: when the camera icon is clicked,
-  // handleSnip is called, which in turn calls window.launchSnippingTool (defined in content.js)
+  // When the camera icon is clicked, call window.launchSnippingTool (defined in content.js)
   const handleSnip = () => {
     if (window.launchSnippingTool) {
       window.launchSnippingTool();
@@ -209,11 +208,11 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
   };
 
   const handleSnipFromHeader = () => {
-    // Optional: If you want to do any additional logging or UI changes
+    // Optional: additional logging or UI changes can be added here
     handleSnip();
   };
 
-  // Render the full window using react-rnd.
+  // Render the chat window using react-rnd.
   const renderWindow = () => {
     const commonPaperStyles = {
       display: 'flex',
