@@ -24,17 +24,15 @@ const ChatFooter = ({ userInput, setUserInput, handleSendMessage, theme }) => {
         fullWidth
         multiline
         minRows={1}
-        maxRows={4} // Adjust maxRows as needed for your design
+        maxRows={4} 
         placeholder="Ask a question..."
         value={userInput}
         onChange={(e) => setUserInput(e.target.value)}
         onKeyDown={(e) => {
-          // If Enter is pressed without Shift, send the message
           if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault(); // Prevents a new line from being added
+            e.preventDefault(); 
             handleSendMessage();
           }
-          // If Shift+Enter, it will insert a new line (default behavior)
         }}
         variant="outlined"
         size="small"
