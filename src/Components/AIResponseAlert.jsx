@@ -9,6 +9,8 @@
  *
  * Now using Material UI as the base for a gorgeous, fully
  * responsive, animated UI – while keeping all the same logic.
+ * 
+ * Added: Voice input functionality via SpeechRecognition.
  *****************************************************/
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -29,6 +31,11 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
   const [continueId, setContinueId] = useState(null);
   const [isContinued, setIsContinued] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // New state for voice recording
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef(null);
+
   const iframeRef = useRef(null);
 
   // Expose imperative methods to append a new query and update the AI response.
@@ -74,6 +81,80 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
       };
     }
   }, [containsMath, conversation]);
+
+  // --- Voice Recognition Functions ---
+  const handleSendVoiceMessage = (transcript) => {
+    if (!transcript.trim()) return;
+    setIsLoading(true);
+    const updated = [...conversation, { sender: 'user', text: transcript.trim() }];
+    setConversation(updated);
+    chrome.runtime.sendMessage(
+      {
+        type: 'continueChat',
+        conversationHistory: updated,
+        continueId: null,
+      },
+      (response) => {
+        setIsLoading(false);
+        if (response && response.response) {
+          setConversation((prev) => [
+            ...prev,
+            { sender: 'assistant', text: response.response },
+          ]);
+          setContinueId(response.id || null);
+          setIsContinued(response.isContinued || false);
+        } else {
+          setConversation((prev) => [
+            ...prev,
+            { sender: 'assistant', text: 'Error: No response from AI.' },
+          ]);
+        }
+      }
+    );
+  };
+
+  const startVoiceRecognition = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech Recognition not supported in this browser.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      handleSendVoiceMessage(transcript);
+    };
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error", event.error);
+      setIsRecording(false);
+    };
+    recognition.start();
+    recognitionRef.current = recognition;
+    setIsRecording(true);
+  };
+
+  const stopVoiceRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsRecording(false);
+  };
+
+  const handleVoiceToggle = () => {
+    if (isRecording) {
+      stopVoiceRecognition();
+    } else {
+      startVoiceRecognition();
+    }
+  };
+  // --- End Voice Functions ---
 
   // Close handler: gracefully unmount the React root from the DOM
   // and restore the page's width to its original state.
@@ -259,6 +340,8 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
               toggleTheme={toggleTheme}
               handleSnip={handleSnip}
               handleClose={handleClose}
+              handleVoiceToggle={handleVoiceToggle}
+              isRecording={isRecording}
             />
             <ChatContent
               conversation={conversation}
@@ -311,6 +394,8 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
             toggleTheme={toggleTheme}
             handleSnip={handleSnip}
             handleClose={handleClose}
+            handleVoiceToggle={handleVoiceToggle}
+            isRecording={isRecording}
           />
           <ChatContent
             conversation={conversation}
