@@ -22,12 +22,23 @@ const ChatFooter = ({ userInput, setUserInput, handleSendMessage, theme }) => {
     >
       <TextField
         fullWidth
+        multiline
+        minRows={1}
+        maxRows={4} 
         placeholder="Ask a question..."
         value={userInput}
         onChange={(e) => setUserInput(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault(); 
+            handleSendMessage();
+          }
+        }}
         variant="outlined"
         size="small"
+        InputProps={{
+          style: { color: theme === 'light' ? '#000' : '#fff' },
+        }}
         sx={{
           backgroundColor: theme === 'light' ? '#fff' : '#2e2e2e',
           '& .MuiOutlinedInput-root': {

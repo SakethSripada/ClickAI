@@ -7,7 +7,7 @@
  * is passed to the provided onComplete callback.
  *****************************************************/
 import React, { useState, useEffect, useRef } from 'react';
-import './SnippingTool.css';
+import './Styles/SnippingTool.css';
 
 const SnippingTool = ({ onComplete, onCancel }) => {
   const [screenshot, setScreenshot] = useState(null);
@@ -80,12 +80,11 @@ const SnippingTool = ({ onComplete, onCancel }) => {
   };
 
   return (
-    <div className="snipping-overlay">
-      {screenshot ? (
-        <img src={screenshot} alt="screenshot" className="snipping-screenshot" />
-      ) : (
-        <div className="loading">Loading screenshot...</div>
-      )}
+    <div
+      className="snipping-overlay"
+      style={{ backgroundImage: screenshot ? `url(${screenshot})` : 'none' }}
+    >
+      {!screenshot && <div className="loading"></div>}
       <div
         className="snipping-selection-overlay"
         ref={overlayRef}

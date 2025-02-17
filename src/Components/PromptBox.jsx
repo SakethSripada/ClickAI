@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import './PromptBox.css';
+import './Styles/PromptBox.css';
 
 /**
  * Simple heuristic to decide if the text “looks like” code.

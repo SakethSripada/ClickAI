@@ -9,13 +9,15 @@
  *
  * Now using Material UI as the base for a gorgeous, fully
  * responsive, animated UI – while keeping all the same logic.
+ * 
+ * Added: Voice input functionality via SpeechRecognition.
  *****************************************************/
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Rnd } from 'react-rnd';
 import { Box, Paper } from '@mui/material';
 import ChatHeader from './ChatHeader';
-import ChatContent from './ChatContent';
+import ChatContent from './ChatContent'; // Updated to auto-scroll on new messages
 import ChatFooter from './ChatFooter';
 
 const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
@@ -29,6 +31,11 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
   const [continueId, setContinueId] = useState(null);
   const [isContinued, setIsContinued] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // New state for voice recording
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef(null);
+
   const iframeRef = useRef(null);
 
   // Expose imperative methods to append a new query and update the AI response.
@@ -75,14 +82,99 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     }
   }, [containsMath, conversation]);
 
-  // Close handler: gracefully unmount the React root from the DOM.
+  // --- Voice Recognition Functions ---
+  const handleSendVoiceMessage = (transcript) => {
+    if (!transcript.trim()) return;
+    setIsLoading(true);
+    const updated = [...conversation, { sender: 'user', text: transcript.trim() }];
+    setConversation(updated);
+    chrome.runtime.sendMessage(
+      {
+        type: 'continueChat',
+        conversationHistory: updated,
+        continueId: null,
+      },
+      (response) => {
+        setIsLoading(false);
+        if (response && response.response) {
+          setConversation((prev) => [
+            ...prev,
+            { sender: 'assistant', text: response.response },
+          ]);
+          setContinueId(response.id || null);
+          setIsContinued(response.isContinued || false);
+        } else {
+          setConversation((prev) => [
+            ...prev,
+            { sender: 'assistant', text: 'Error: No response from AI.' },
+          ]);
+        }
+      }
+    );
+  };
+
+  const startVoiceRecognition = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech Recognition not supported in this browser.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      handleSendVoiceMessage(transcript);
+    };
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error", event.error);
+      setIsRecording(false);
+    };
+    recognition.start();
+    recognitionRef.current = recognition;
+    setIsRecording(true);
+  };
+
+  const stopVoiceRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsRecording(false);
+  };
+
+  const handleVoiceToggle = () => {
+    if (isRecording) {
+      stopVoiceRecognition();
+    } else {
+      startVoiceRecognition();
+    }
+  };
+  // --- End Voice Functions ---
+
+  // Close handler: gracefully unmount the React root from the DOM
+  // and restore the page's width to its original state.
   const handleClose = () => {
+    // Remove docking modifications to restore page layout
+    document.body.classList.remove('ai-docked-mode');
+    document.body.style.marginRight = '';
+    document.documentElement.style.setProperty('--docked-width', '0px');
+
     const existingAlert = document.querySelector('#react-root');
     if (existingAlert) {
       setTimeout(() => {
         const root = createRoot(existingAlert);
         root.unmount();
         document.body.removeChild(existingAlert);
+        // Show the floating button when chat window is closed
+        const floatBtn = document.getElementById('ai-float-btn');
+        if (floatBtn) {
+          floatBtn.style.display = 'block';
+        }
       }, 100);
     }
   };
@@ -175,6 +267,13 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     });
   };
 
+  // When the camera icon is clicked, call window.launchSnippingTool (defined in content.js)
+  const handleSnip = () => {
+    if (window.launchSnippingTool) {
+      window.launchSnippingTool();
+    }
+  };
+
   const toggleDock = () => {
     setIsDocked((prev) => {
       const newDockState = !prev;
@@ -195,13 +294,12 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  const handleSnip = () => {
-    if (window.launchSnippingTool) {
-      window.launchSnippingTool();
-    }
+  const handleSnipFromHeader = () => {
+    // Optional: additional logging or UI changes can be added here
+    handleSnip();
   };
 
-  // Render the full window using react-rnd.
+  // Render the chat window using react-rnd.
   const renderWindow = () => {
     const commonPaperStyles = {
       display: 'flex',
@@ -242,6 +340,8 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
               toggleTheme={toggleTheme}
               handleSnip={handleSnip}
               handleClose={handleClose}
+              handleVoiceToggle={handleVoiceToggle}
+              isRecording={isRecording}
             />
             <ChatContent
               conversation={conversation}
@@ -273,6 +373,7 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
         minWidth={300}
         minHeight={200}
         bounds="window"
+        dragHandleClassName="chat-header-drag-handle"
         enableResizing={{
           top: true,
           right: true,
@@ -293,6 +394,8 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
             toggleTheme={toggleTheme}
             handleSnip={handleSnip}
             handleClose={handleClose}
+            handleVoiceToggle={handleVoiceToggle}
+            isRecording={isRecording}
           />
           <ChatContent
             conversation={conversation}
