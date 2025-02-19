@@ -1,24 +1,53 @@
-/*****************************************************
- * src/MessageBubble.js
- *
- * Renders an individual message bubble. It supports
- * both text and code blocks.
- *****************************************************/
+// src/MessageBubble.js
 import React from 'react';
 import { Box, Paper, IconButton } from '@mui/material';
 import { Slide } from '@mui/material';
 import { parseMessageToBlocks } from '../utils';
 import CodeBlock from './CodeBlock';
 import { marked } from 'marked';
+import { renderCustomMath } from '../utils';
 import { FaVolumeUp } from 'react-icons/fa';
 
 const MessageBubble = ({ message, theme }) => {
   const isUser = message.sender === 'user';
   const blocks = parseMessageToBlocks(message.text);
 
-  // Define different border radii for user vs. assistant messages to simulate a chat bubble tail.
-  // For user messages (right-aligned): make the bottom-right corner less rounded.
-  // For assistant messages (left-aligned): make the bottom-left corner less rounded.
+  // Render each block. For assistant messages, use our custom math renderer.
+  const renderedBlocks = blocks.map((block, i) => {
+    if (block.type === 'code') {
+      return (
+        <CodeBlock
+          key={i}
+          content={block.content}
+          theme={theme}
+          onCopy={(code) => {
+            navigator.clipboard.writeText(code).then(() => {
+              alert('Code copied to clipboard!');
+            });
+          }}
+        />
+      );
+    } else {
+      if (!isUser) {
+        return (
+          <React.Fragment key={i}>
+            {renderCustomMath(block.content)}
+          </React.Fragment>
+        );
+      } else {
+        const html = marked.parse(block.content || '');
+        const stripped = html.replace(/^<p>/, '').replace(/<\/p>$/, '');
+        return (
+          <Box
+            key={i}
+            sx={{ mt: i === 0 ? 0 : 0.5 }}
+            dangerouslySetInnerHTML={{ __html: stripped }}
+          />
+        );
+      }
+    }
+  });
+
   const bubbleBorderRadius = isUser ? '16px 16px 2px 16px' : '16px 16px 16px 2px';
 
   const handleSpeak = () => {
@@ -26,12 +55,10 @@ const MessageBubble = ({ message, theme }) => {
       alert("Text-to-speech is not supported in this browser.");
       return;
     }
-    // If something is already being spoken, cancel it.
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
     } else {
       const utterance = new SpeechSynthesisUtterance(message.text);
-      // Optional: adjust voice, rate, or pitch as needed.
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -66,31 +93,7 @@ const MessageBubble = ({ message, theme }) => {
             userSelect: 'text',
           }}
         >
-          {blocks.map((block, i) => {
-            if (block.type === 'code') {
-              return (
-                <CodeBlock
-                  key={i}
-                  content={block.content}
-                  theme={theme}
-                  onCopy={(code) => {
-                    navigator.clipboard.writeText(code).then(() => {
-                      alert('Code copied to clipboard!');
-                    });
-                  }}
-                />
-              );
-            } else {
-              const html = marked.parse(block.content || '');
-              return (
-                <Box
-                  key={i}
-                  sx={{ mt: i === 0 ? 0 : 0.5 }}
-                  dangerouslySetInnerHTML={{ __html: html }}
-                />
-              );
-            }
-          })}
+          {renderedBlocks}
           {message.sender === 'assistant' && (
             <IconButton
               onClick={handleSpeak}
