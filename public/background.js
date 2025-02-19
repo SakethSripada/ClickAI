@@ -25,6 +25,13 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Select area and send to ClickAI",
     contexts: ["all"]
   });
+
+  // NEW: Context menu for capturing area with additional prompt
+  chrome.contextMenus.create({
+    id: "captureAreaAndPrompt",
+    title: "Select area, add prompt, and ask ClickAI",
+    contexts: ["all"]
+  });
 });
 
 // Handle context menu clicks
@@ -36,6 +43,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   } else if (info.menuItemId === "captureArea") {
     // Send message to content script to launch the snipping tool
     chrome.tabs.sendMessage(tab.id, { type: 'captureArea' });
+  } else if (info.menuItemId === "captureAreaAndPrompt") {
+    // NEW: Send message to content script to launch the snipping tool with an additional prompt
+    chrome.tabs.sendMessage(tab.id, { type: 'captureAreaAndPrompt' });
   }
 });
 
@@ -147,7 +157,7 @@ function handleTextCaptureWithPrompt(tabId, combinedText) {
   injectConsoleLog(tabId, "Captured Text with Prompt: " + combinedText);
   sendNewUserQuery(tabId, combinedText);
   sendTextToAI(tabId, combinedText, (response) => {
-    injectConsoleLog(tabId, "AI Response: " + response);
+    injectConsoleLog(tab.id, "AI Response: " + response);
     updateAIResponse(tabId, response);
     chrome.runtime.sendMessage({ type: 'openChat', message: response });
   });

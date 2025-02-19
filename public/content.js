@@ -193,6 +193,87 @@ function launchSnippingTool() {
 }
 
 /**
+ * NEW FUNCTION:
+ * Launches the snipping tool overlay with an additional prompt.
+ * After the user snips an area, the image is processed via OCR to extract text.
+ * Then the user is asked for an additional prompt. Both the extracted text
+ * and additional prompt are combined and sent to the AI backend.
+ */
+function launchSnippingToolWithPrompt() {
+  // Create container for SnippingTool
+  const snipContainer = document.createElement('div');
+  snipContainer.id = 'snip-container';
+  document.body.appendChild(snipContainer);
+  const snipRoot = createRoot(snipContainer);
+  snipRoot.render(
+    <SnippingTool
+      onComplete={(croppedImageData) => {
+        // Remove snipping tool overlay
+        snipRoot.unmount();
+        document.body.removeChild(snipContainer);
+        // Process the snipped image using Tesseract OCR to extract text
+        Tesseract.recognize(croppedImageData, 'eng', { logger: m => console.log(m) })
+          .then(({ data: { text } }) => {
+            const extractedText = text.trim();
+            if (!extractedText) {
+              // If OCR yields no text, notify the user
+              renderOrAppendQuery('[No text detected]');
+              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No text detected in the snip.');
+              }
+              return;
+            }
+            // Ask for an additional prompt using the PromptBox
+            renderPromptBox(extractedText, (response) => {
+              const additionalPrompt = response.additionalText;
+              const combinedQuery = extractedText + "\n" + additionalPrompt;
+              renderOrAppendQuery(combinedQuery);
+              // Send the combined query to AI as a normal text query
+              fetch('http://localhost:5010/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  conversationHistory: [{ sender: 'user', text: combinedQuery }]
+                })
+              })
+                .then(response => response.json())
+                .then(data => {
+                  if (data && data.response) {
+                    if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                      window.aiResponseAlertRef.current.updateLastAssistantResponse(data.response);
+                    }
+                    chrome.runtime.sendMessage({ type: 'openChat', message: data.response });
+                  } else {
+                    if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                      window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No response from AI');
+                    }
+                  }
+                })
+                .catch(error => {
+                  console.error('Error sending text to AI:', error);
+                  if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                    window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Unable to contact AI server');
+                  }
+                });
+            });
+          })
+          .catch(err => {
+            console.error('Error during OCR processing:', err);
+            renderOrAppendQuery('[OCR Error]');
+            if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+              window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: OCR processing failed.');
+            }
+          });
+      }}
+      onCancel={() => {
+        snipRoot.unmount();
+        document.body.removeChild(snipContainer);
+      }}
+    />
+  );
+}
+
+/**
  * Converts a base64 data URL to a Blob.
  *
  * @param {string} dataurl - The base64 data URL.
@@ -363,6 +444,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.type === 'captureArea') {
     // Trigger snipping tool from context menu
     launchSnippingTool();
+  } else if (request.type === 'captureAreaAndPrompt') {
+    // NEW: Trigger snipping tool with an additional prompt from context menu
+    launchSnippingToolWithPrompt();
   }
 });
 
@@ -372,6 +456,7 @@ export {
   renderOrAppendQuery,
   createAIResponseAlert,
   launchSnippingTool,
+  launchSnippingToolWithPrompt, // Export the new function as well
   sendNewUserQuery,
   updateAIResponse,
   injectConsoleLog
