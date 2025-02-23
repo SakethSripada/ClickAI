@@ -8,7 +8,8 @@
     "activeTab",
     "storage",
     "scripting",
-    "tabs"
+    "tabs",
+    "identity"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -31,6 +32,12 @@
       "js": ["content.bundle.js"]
     }
   ],
+  "oauth2": {
+    "client_id": "192655607759-oumqfd1t3d7qm4tvqc5j5shld5elfb1f.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email"
+    ]
+  },
   "web_accessible_resources": [
     {
       "resources": [
@@ -43,3 +50,4 @@
     }
   ]
 }
+
