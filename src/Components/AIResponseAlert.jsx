@@ -11,6 +11,8 @@
  * responsive, animated UI – while keeping all the same logic.
  * 
  * Added: Voice input functionality via SpeechRecognition.
+ * Production improvements include detailed comments and 
+ * robust error handling.
  *****************************************************/
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -58,12 +60,14 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     }
   }, [initialQuery]);
 
+  // Check if any conversation message contains math expressions.
   useEffect(() => {
     const mathRegex = /(\$.*?\$|\\\(.*?\)|\\\[.*?\]|\\begin\{.*?\}[\s\S]*?\\end\{.*?\})/g;
     const hasMath = conversation.some((msg) => mathRegex.test(msg.text));
     setContainsMath(hasMath);
   }, [conversation]);
 
+  // When math is detected, send a message to the iframe to render it.
   useEffect(() => {
     if (containsMath && iframeRef.current && iframeRef.current.contentWindow) {
       iframeRef.current.onload = () => {
@@ -119,24 +123,29 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
       alert("Speech Recognition not supported in this browser.");
       return;
     }
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      handleSendVoiceMessage(transcript);
-    };
-    recognition.onend = () => {
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        handleSendVoiceMessage(transcript);
+      };
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error", event.error);
+        setIsRecording(false);
+      };
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Error initializing speech recognition:", error);
       setIsRecording(false);
-    };
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error", event.error);
-      setIsRecording(false);
-    };
-    recognition.start();
-    recognitionRef.current = recognition;
-    setIsRecording(true);
+    }
   };
 
   const stopVoiceRecognition = () => {

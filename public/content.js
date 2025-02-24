@@ -4,6 +4,10 @@
  * This file injects the AI chat UI into the webpage,
  * handles floating button creation, message passing,
  * and now also processes snipped images using Tesseract OCR.
+ * 
+ * PRODUCTION READY: Added robust error handling, input 
+ * validation, and OCR image pre-processing to optimize 
+ * recognition accuracy and eliminate unnecessary API calls.
  *****************************************************/
 import React from 'react';
 import { createRoot } from 'react-dom/client';
@@ -16,6 +20,40 @@ import { AiOutlineMessage } from 'react-icons/ai';
 // Global references to the alert container and its React ref
 let aiResponseAlertRoot = null;
 window.aiResponseAlertRef = null;
+
+/**
+ * Preprocesses the image data to optimize OCR performance.
+ * This function loads the image from the data URL, applies a grayscale
+ * and contrast filter, and returns a new data URL.
+ *
+ * @param {string} dataUrl - The base64 image data URL.
+ * @returns {Promise<string>} A promise that resolves to the processed data URL.
+ */
+function preprocessImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        // Apply filters to enhance OCR accuracy
+        ctx.filter = 'grayscale(100%) contrast(120%)';
+        ctx.drawImage(img, 0, 0);
+        const processedDataUrl = canvas.toDataURL();
+        resolve(processedDataUrl);
+      };
+      img.onerror = () => {
+        reject(new Error("Image preprocessing failed: Unable to load image."));
+      };
+      img.src = dataUrl;
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
 
 /**
  * If an AIResponseAlert is already open, append the new user query;
@@ -91,9 +129,9 @@ function injectFloatingButton() {
       color: white;
       border: none;
       border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
       cursor: pointer;
       box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
       transition: all 0.3s ease-in-out;
@@ -112,15 +150,28 @@ function injectFloatingButton() {
     #ai-float-btn svg {
       width: 30px;
       height: 30px;
+      margin: 0; /* Ensure no extra margins cause misalignment */
     }
   `;
   document.head.appendChild(style);
 }
 
+/* 
+ * Instead of calling injectFloatingButton() immediately, wait until 
+ * the entire page (including any React elements) has loaded to prevent 
+ * hydration conflicts on pages that use React.
+ */
+if (document.readyState === 'complete') {
+  injectFloatingButton();
+} else {
+  window.addEventListener('load', injectFloatingButton);
+}
+
 /**
  * Launches the snipping tool overlay.
- * After the user snips an area, the image is processed via OCR to extract text.
- * That text is then sent as a normal user query to the AI backend.
+ * After the user snips an area, the image is pre-processed and then
+ * processed via OCR to extract text. The extracted text is validated
+ * and then sent as a normal user query to the AI backend.
  */
 function launchSnippingTool() {
   // Create container for SnippingTool
@@ -131,15 +182,19 @@ function launchSnippingTool() {
   snipRoot.render(
     <SnippingTool
       onComplete={(croppedImageData) => {
-        // Remove snipping tool overlay
+        // Remove snipping tool overlay immediately
         snipRoot.unmount();
         document.body.removeChild(snipContainer);
-        // Process the snipped image using Tesseract OCR to extract text
-        Tesseract.recognize(croppedImageData, 'eng', { logger: m => console.log(m) })
+
+        // Preprocess the image before OCR to improve recognition accuracy
+        preprocessImage(croppedImageData)
+          .then((processedImageData) => {
+            return Tesseract.recognize(processedImageData, 'eng', { logger: m => console.log(m) });
+          })
           .then(({ data: { text } }) => {
             const extractedText = text.trim();
             if (!extractedText) {
-              // If OCR yields no text, notify the user
+              // If OCR yields no text, notify the user and do not call API
               renderOrAppendQuery('[No text detected]');
               if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
                 window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No text detected in the snip.');
@@ -148,6 +203,13 @@ function launchSnippingTool() {
             }
             // Append the extracted text as a new user query
             renderOrAppendQuery(extractedText);
+            // Validate the extracted text before calling the API
+            if (typeof extractedText !== 'string' || extractedText.length < 2) {
+              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Extracted text is invalid.');
+              }
+              return;
+            }
             // Send the extracted text to AI as a normal text query
             fetch('http://localhost:5010/generate', {
               method: 'POST',
@@ -178,7 +240,7 @@ function launchSnippingTool() {
           })
           .catch(err => {
             console.error('Error during OCR processing:', err);
-            renderOrAppendQuery('[OCR Error]');
+            renderOrAppendQuery('[OCR Error. This website may be blocking the image scanning workers. Try sending the text by right clicking on it instead.]');
             if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
               window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: OCR processing failed.');
             }
@@ -195,9 +257,9 @@ function launchSnippingTool() {
 /**
  * NEW FUNCTION:
  * Launches the snipping tool overlay with an additional prompt.
- * After the user snips an area, the image is processed via OCR to extract text.
- * Then the user is asked for an additional prompt. Both the extracted text
- * and additional prompt are combined and sent to the AI backend.
+ * After the user snips an area, the image is pre-processed and then processed
+ * via OCR to extract text. Then the user is asked for an additional prompt.
+ * Both the extracted text and additional prompt are combined and sent to the AI backend.
  */
 function launchSnippingToolWithPrompt() {
   // Create container for SnippingTool
@@ -208,15 +270,19 @@ function launchSnippingToolWithPrompt() {
   snipRoot.render(
     <SnippingTool
       onComplete={(croppedImageData) => {
-        // Remove snipping tool overlay
+        // Remove snipping tool overlay immediately
         snipRoot.unmount();
         document.body.removeChild(snipContainer);
-        // Process the snipped image using Tesseract OCR to extract text
-        Tesseract.recognize(croppedImageData, 'eng', { logger: m => console.log(m) })
+
+        // Preprocess the image before OCR to improve recognition accuracy
+        preprocessImage(croppedImageData)
+          .then((processedImageData) => {
+            return Tesseract.recognize(processedImageData, 'eng', { logger: m => console.log(m) });
+          })
           .then(({ data: { text } }) => {
             const extractedText = text.trim();
             if (!extractedText) {
-              // If OCR yields no text, notify the user
+              // If OCR yields no text, notify the user and do not call API
               renderOrAppendQuery('[No text detected]');
               if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
                 window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No text detected in the snip.');
@@ -228,6 +294,13 @@ function launchSnippingToolWithPrompt() {
               const additionalPrompt = response.additionalText;
               const combinedQuery = extractedText + "\n" + additionalPrompt;
               renderOrAppendQuery(combinedQuery);
+              // Validate combined query before sending to the AI
+              if (typeof combinedQuery !== 'string' || combinedQuery.trim().length < 2) {
+                if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                  window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Combined query is invalid.');
+                }
+                return;
+              }
               // Send the combined query to AI as a normal text query
               fetch('http://localhost:5010/generate', {
                 method: 'POST',
@@ -259,7 +332,7 @@ function launchSnippingToolWithPrompt() {
           })
           .catch(err => {
             console.error('Error during OCR processing:', err);
-            renderOrAppendQuery('[OCR Error]');
+            renderOrAppendQuery('[OCR Error. This website may be blocking the image scanning workers. Try sending the text by right clicking on it instead.]');
             if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
               window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: OCR processing failed.');
             }
@@ -296,30 +369,30 @@ function dataURLtoBlob(dataurl) {
  * The sendImageToAI function is no longer used because we now process the image using OCR.
  * It is kept here commented out for reference.
  *
-// function sendImageToAI(imageData, callback) {
-//   const blob = dataURLtoBlob(imageData);
-//   const formData = new FormData();
-//   formData.append('file', blob, 'image.png');
-//   // Optionally, add conversationHistory as JSON string if needed.
-//   formData.append('conversationHistory', JSON.stringify([{ sender: 'user', text: '[Image Input]' }]));
-//
-//   fetch('http://localhost:5010/generate', {
-//     method: 'POST',
-//     body: formData,
-//   })
-//     .then(response => response.json())
-//     .then(data => {
-//       if (data && data.response) {
-//         callback(data.response);
-//       } else {
-//         callback('Error: No response from AI');
-//       }
-//     })
-//     .catch(error => {
-//       console.error('Error sending image to AI:', error);
-//       callback('Error: Unable to contact AI server');
-//     });
-// }
+ // function sendImageToAI(imageData, callback) {
+ //   const blob = dataURLtoBlob(imageData);
+ //   const formData = new FormData();
+ //   formData.append('file', blob, 'image.png');
+ //   // Optionally, add conversationHistory as JSON string if needed.
+ //   formData.append('conversationHistory', JSON.stringify([{ sender: 'user', text: '[Image Input]' }]));
+ //
+ //   fetch('http://localhost:5010/generate', {
+ //     method: 'POST',
+ //     body: formData,
+ //   })
+ //     .then(response => response.json())
+ //     .then(data => {
+ //       if (data && data.response) {
+ //         callback(data.response);
+ //       } else {
+ //         callback('Error: No response from AI');
+ //       }
+ //     })
+ //     .catch(error => {
+ //       console.error('Error sending image to AI:', error);
+ //       callback('Error: Unable to contact AI server');
+ //     });
+ // }
 */
 
 /**

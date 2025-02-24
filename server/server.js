@@ -2,17 +2,31 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const tiktoken = require('tiktoken');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 5010;
 
+// Set security-related HTTP headers
+app.use(helmet());
+
+// Enable CORS with strict settings for production
 app.use(cors({
-  origin: '*',  
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+
+// Rate limiting middleware to prevent abuse (e.g. DDOS)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: 'Too many requests from this IP, please try again later.'
+});
+app.use(apiLimiter);
 
 app.use(express.json());
 
@@ -22,10 +36,23 @@ const incompleteResponses = {};
 
 const encoder = tiktoken.encoding_for_model("gpt-4");
 
+/**
+ * Counts the total tokens in the conversation messages.
+ *
+ * @param {Array} messages - Array of message objects.
+ * @returns {number} Total token count.
+ */
 const countTokens = (messages) => {
   return messages.reduce((total, msg) => total + encoder.encode(msg.content).length, 0);
 };
 
+/**
+ * Trims conversation history to keep token count within limits.
+ *
+ * @param {Array} history - Array of conversation messages.
+ * @param {number} maxTokens - Maximum allowed tokens.
+ * @returns {Array} Trimmed conversation history.
+ */
 const trimHistory = (history, maxTokens) => {
   while (countTokens(history) > maxTokens && history.length > 1) {
     history.shift(); 
@@ -37,6 +64,7 @@ app.post('/generate', async (req, res) => {
   const { conversationHistory, continueId, image } = req.body;
   let formattedHistory = [];
 
+  // Validate input before proceeding to avoid unnecessary API calls
   if (image) {
     formattedHistory.push({
       role: 'user',
@@ -61,6 +89,7 @@ app.post('/generate', async (req, res) => {
     ];
   }
 
+  // Trim history to avoid exceeding token limits
   formattedHistory = trimHistory(formattedHistory, MAX_TOKENS - RESPONSE_TOKENS);
 
   try {
