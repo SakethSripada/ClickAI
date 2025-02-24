@@ -7,7 +7,8 @@ function App() {
 
   return (
     <div>
-      <AIResponseAlert ref={aiResponseAlertRef} initialQuery="" />
+      {/* In popup mode we pass isPopup=true */}
+      <AIResponseAlert ref={aiResponseAlertRef} initialQuery="" isPopup={true} />
     </div>
   );
 }

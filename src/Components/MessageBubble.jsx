@@ -1,37 +1,34 @@
-/*****************************************************
- * src/MessageBubble.js
- *
- * Renders an individual message bubble. It supports
- * both text and code blocks.
- *****************************************************/
 import React from 'react';
 import { Box, Paper, IconButton } from '@mui/material';
 import { Slide } from '@mui/material';
+import ReactMarkdown from 'react-markdown';
 import { parseMessageToBlocks } from '../utils';
 import CodeBlock from './CodeBlock';
-import { marked } from 'marked';
 import { FaVolumeUp } from 'react-icons/fa';
 
-const MessageBubble = ({ message, theme }) => {
+const MessageBubble = ({ message, theme, isPopup }) => {
   const isUser = message.sender === 'user';
   const blocks = parseMessageToBlocks(message.text);
 
-  // Define different border radii for user vs. assistant messages to simulate a chat bubble tail.
-  // For user messages (right-aligned): make the bottom-right corner less rounded.
-  // For assistant messages (left-aligned): make the bottom-left corner less rounded.
+  // Define different border radii for user vs. assistant messages.
   const bubbleBorderRadius = isUser ? '16px 16px 2px 16px' : '16px 16px 16px 2px';
+
+  // Define conditional text style based on popup mode.
+  const textStyle = {
+    fontSize: isPopup ? '1rem' : '1rem', // Increase font size in popup mode
+    lineHeight: 1.5,
+  };
 
   const handleSpeak = () => {
     if (!('speechSynthesis' in window)) {
       alert("Text-to-speech is not supported in this browser.");
       return;
     }
-    // If something is already being spoken, cancel it.
+    // Cancel any ongoing speech before speaking new text.
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
     } else {
       const utterance = new SpeechSynthesisUtterance(message.text);
-      // Optional: adjust voice, rate, or pitch as needed.
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -64,6 +61,7 @@ const MessageBubble = ({ message, theme }) => {
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             wordBreak: 'break-word',
             userSelect: 'text',
+            ...textStyle, // Apply the conditional text style to the paper container
           }}
         >
           {blocks.map((block, i) => {
@@ -81,13 +79,11 @@ const MessageBubble = ({ message, theme }) => {
                 />
               );
             } else {
-              const html = marked.parse(block.content || '');
+              // Wrap each text block with the text style.
               return (
-                <Box
-                  key={i}
-                  sx={{ mt: i === 0 ? 0 : 0.5 }}
-                  dangerouslySetInnerHTML={{ __html: html }}
-                />
+                <Box key={i} sx={{ mt: i === 0 ? 0 : 0.5, ...textStyle }}>
+                  <ReactMarkdown>{block.content || ''}</ReactMarkdown>
+                </Box>
               );
             }
           })}

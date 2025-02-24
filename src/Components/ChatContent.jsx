@@ -18,6 +18,7 @@ const ChatContent = ({
   theme,
   iframeRef,
   handleContinueGenerating,
+  isPopup,
 }) => {
   const contentRef = useRef(null);
 
@@ -44,8 +45,9 @@ const ChatContent = ({
       }}
     >
       {conversation.map((msg, i) => (
-        <MessageBubble key={i} message={msg} theme={theme} />
+        <MessageBubble key={i} message={msg} theme={theme} isPopup={isPopup} />
       ))}
+
       {isLoading && (
         <Box
           sx={{

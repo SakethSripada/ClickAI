@@ -13,16 +13,27 @@
  * Added: Voice input functionality via SpeechRecognition.
  * Production improvements include detailed comments and 
  * robust error handling.
+ *
+ * When rendered in popup mode (isPopup=true), the draggable,
+ * dock, camera, and close controls are omitted. Also, the UI is
+ * made fully clickable (pointerEvents auto) and the chat window
+ * border radius is removed.
  *****************************************************/
-import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import { createRoot } from 'react-dom/client';
 import { Rnd } from 'react-rnd';
 import { Box, Paper } from '@mui/material';
 import ChatHeader from './ChatHeader';
-import ChatContent from './ChatContent'; // Updated to auto-scroll on new messages
+import ChatContent from './ChatContent';
 import ChatFooter from './ChatFooter';
 
-const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
+const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
   // STATES
   const [conversation, setConversation] = useState([]);
   const [userInput, setUserInput] = useState('');
@@ -33,12 +44,14 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
   const [continueId, setContinueId] = useState(null);
   const [isContinued, setIsContinued] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // New state for voice recording
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef(null);
-
   const iframeRef = useRef(null);
+
+  // Define toggleTheme function to flip light/dark mode.
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   // Expose imperative methods to append a new query and update the AI response.
   useImperativeHandle(ref, () => ({
@@ -52,7 +65,7 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     },
   }));
 
-  // On mount, if an initialQuery is provided
+  // On mount, if an initialQuery is provided.
   useEffect(() => {
     if (initialQuery) {
       setConversation([{ sender: 'user', text: initialQuery }]);
@@ -120,7 +133,7 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
   const startVoiceRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Speech Recognition not supported in this browser.");
+      alert('Speech Recognition not supported in this browser.');
       return;
     }
     try {
@@ -136,14 +149,14 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
         setIsRecording(false);
       };
       recognition.onerror = (event) => {
-        console.error("Speech recognition error", event.error);
+        console.error('Speech recognition error', event.error);
         setIsRecording(false);
       };
       recognition.start();
       recognitionRef.current = recognition;
       setIsRecording(true);
     } catch (error) {
-      console.error("Error initializing speech recognition:", error);
+      console.error('Error initializing speech recognition:', error);
       setIsRecording(false);
     }
   };
@@ -164,29 +177,6 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     }
   };
   // --- End Voice Functions ---
-
-  // Close handler: gracefully unmount the React root from the DOM
-  // and restore the page's width to its original state.
-  const handleClose = () => {
-    // Remove docking modifications to restore page layout
-    document.body.classList.remove('ai-docked-mode');
-    document.body.style.marginRight = '';
-    document.documentElement.style.setProperty('--docked-width', '0px');
-
-    const existingAlert = document.querySelector('#react-root');
-    if (existingAlert) {
-      setTimeout(() => {
-        const root = createRoot(existingAlert);
-        root.unmount();
-        document.body.removeChild(existingAlert);
-        // Show the floating button when chat window is closed
-        const floatBtn = document.getElementById('ai-float-btn');
-        if (floatBtn) {
-          floatBtn.style.display = 'block';
-        }
-      }, 100);
-    }
-  };
 
   const handleSendMessage = () => {
     const followUp = userInput.trim();
@@ -270,139 +260,23 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
     );
   };
 
-  const handleCopyCode = (code) => {
-    navigator.clipboard.writeText(code).then(() => {
-      alert('Code copied to clipboard!');
-    });
+  // When rendering in popup mode, remove border radius.
+  const commonPaperStyles = {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    overflow: 'hidden',
+    borderRadius: isPopup ? 0 : (isDocked ? 0 : 8),
   };
 
-  // When the camera icon is clicked, call window.launchSnippingTool (defined in content.js)
-  const handleSnip = () => {
-    if (window.launchSnippingTool) {
-      window.launchSnippingTool();
-    }
-  };
-
-  const toggleDock = () => {
-    setIsDocked((prev) => {
-      const newDockState = !prev;
-      if (newDockState) {
-        document.body.classList.add('ai-docked-mode');
-        document.body.style.marginRight = `${dockedWidth}px`;
-        document.documentElement.style.setProperty('--docked-width', `${dockedWidth}px`);
-      } else {
-        document.body.classList.remove('ai-docked-mode');
-        document.body.style.marginRight = '';
-        document.documentElement.style.setProperty('--docked-width', '0px');
-      }
-      return newDockState;
-    });
-  };
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
-  };
-
-  const handleSnipFromHeader = () => {
-    // Optional: additional logging or UI changes can be added here
-    handleSnip();
-  };
-
-  // Render the chat window using react-rnd.
   const renderWindow = () => {
-    const commonPaperStyles = {
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      overflow: 'hidden',
-      borderRadius: isDocked ? 0 : 8,
-    };
-
-    if (isDocked) {
+    if (isPopup) {
       return (
-        <Rnd
-          size={{ width: dockedWidth, height: window.innerHeight }}
-          position={{
-            x: Math.round(window.innerWidth - dockedWidth),
-            y: 0,
-          }}
-          minWidth={300}
-          maxWidth={800}
-          disableDragging={true}
-          enableResizing={{ left: true }}
-          bounds="window"
-          onResizeStop={(e, direction, refElement) => {
-            const newWidth = parseInt(refElement.style.width, 10);
-            setDockedWidth(newWidth);
-            if (isDocked) {
-              document.body.style.marginRight = `${newWidth}px`;
-              document.documentElement.style.setProperty('--docked-width', `${newWidth}px`);
-            }
-          }}
-          style={{ pointerEvents: 'all', zIndex: 1500 }}
-        >
-          <Paper sx={commonPaperStyles} elevation={6}>
-            <ChatHeader
-              theme={theme}
-              isDocked={isDocked}
-              toggleDock={toggleDock}
-              toggleTheme={toggleTheme}
-              handleSnip={handleSnip}
-              handleClose={handleClose}
-              handleVoiceToggle={handleVoiceToggle}
-              isRecording={isRecording}
-            />
-            <ChatContent
-              conversation={conversation}
-              isLoading={isLoading}
-              isContinued={isContinued}
-              containsMath={containsMath}
-              theme={theme}
-              iframeRef={iframeRef}
-              handleContinueGenerating={handleContinueGenerating}
-            />
-            <ChatFooter
-              userInput={userInput}
-              setUserInput={setUserInput}
-              handleSendMessage={handleSendMessage}
-              theme={theme}
-            />
-          </Paper>
-        </Rnd>
-      );
-    }
-    return (
-      <Rnd
-        default={{
-          x: Math.round(window.innerWidth / 2 - 300),
-          y: Math.round(window.innerHeight / 2 - 200),
-          width: 600,
-          height: 400,
-        }}
-        minWidth={300}
-        minHeight={200}
-        bounds="window"
-        dragHandleClassName="chat-header-drag-handle"
-        enableResizing={{
-          top: true,
-          right: true,
-          bottom: true,
-          left: true,
-          topRight: true,
-          bottomRight: true,
-          bottomLeft: true,
-          topLeft: true,
-        }}
-        style={{ pointerEvents: 'all', zIndex: 1500 }}
-      >
         <Paper sx={commonPaperStyles} elevation={6}>
           <ChatHeader
             theme={theme}
-            isDocked={isDocked}
-            toggleDock={toggleDock}
+            isPopup={true}
             toggleTheme={toggleTheme}
-            handleSnip={handleSnip}
-            handleClose={handleClose}
             handleVoiceToggle={handleVoiceToggle}
             isRecording={isRecording}
           />
@@ -414,6 +288,7 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
             theme={theme}
             iframeRef={iframeRef}
             handleContinueGenerating={handleContinueGenerating}
+            isPopup={true}
           />
           <ChatFooter
             userInput={userInput}
@@ -422,8 +297,140 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
             theme={theme}
           />
         </Paper>
-      </Rnd>
-    );
+      );
+    } else {
+      if (isDocked) {
+        return (
+          <Rnd
+            size={{ width: dockedWidth, height: window.innerHeight }}
+            position={{
+              x: Math.round(window.innerWidth - dockedWidth),
+              y: 0,
+            }}
+            minWidth={300}
+            maxWidth={800}
+            disableDragging={true}
+            enableResizing={{ left: true }}
+            bounds="window"
+            onResizeStop={(e, direction, refElement) => {
+              const newWidth = parseInt(refElement.style.width, 10);
+              setDockedWidth(newWidth);
+              if (isDocked) {
+                document.body.style.marginRight = `${newWidth}px`;
+                document.documentElement.style.setProperty('--docked-width', `${newWidth}px`);
+              }
+            }}
+            style={{ pointerEvents: 'all', zIndex: 1500 }}
+          >
+            <Paper sx={commonPaperStyles} elevation={6}>
+              <ChatHeader
+                theme={theme}
+                isPopup={false}
+                isDocked={isDocked}
+                toggleDock={() => setIsDocked((prev) => !prev)}
+                toggleTheme={toggleTheme}
+                handleSnip={() => {
+                  if (window.launchSnippingTool) window.launchSnippingTool();
+                }}
+                handleClose={() => {
+                  const existingAlert = document.querySelector('#react-root');
+                  if (existingAlert) {
+                    const root = createRoot(existingAlert);
+                    root.unmount();
+                    document.body.removeChild(existingAlert);
+                    const floatBtn = document.getElementById('ai-float-btn');
+                    if (floatBtn) floatBtn.style.display = 'block';
+                  }
+                }}
+                handleVoiceToggle={handleVoiceToggle}
+                isRecording={isRecording}
+              />
+              <ChatContent
+                conversation={conversation}
+                isLoading={isLoading}
+                isContinued={isContinued}
+                containsMath={containsMath}
+                theme={theme}
+                iframeRef={iframeRef}
+                handleContinueGenerating={handleContinueGenerating}
+              />
+              <ChatFooter
+                userInput={userInput}
+                setUserInput={setUserInput}
+                handleSendMessage={handleSendMessage}
+                theme={theme}
+              />
+            </Paper>
+          </Rnd>
+        );
+      } else {
+        return (
+          <Rnd
+            default={{
+              x: Math.round(window.innerWidth / 2 - 300),
+              y: Math.round(window.innerHeight / 2 - 200),
+              width: 600,
+              height: 400,
+            }}
+            minWidth={300}
+            minHeight={200}
+            bounds="window"
+            dragHandleClassName="chat-header-drag-handle"
+            enableResizing={{
+              top: true,
+              right: true,
+              bottom: true,
+              left: true,
+              topRight: true,
+              bottomRight: true,
+              bottomLeft: true,
+              topLeft: true,
+            }}
+            style={{ pointerEvents: 'all', zIndex: 1500 }}
+          >
+            <Paper sx={commonPaperStyles} elevation={6}>
+              <ChatHeader
+                theme={theme}
+                isPopup={false}
+                isDocked={isDocked}
+                toggleDock={() => setIsDocked((prev) => !prev)}
+                toggleTheme={toggleTheme}
+                handleSnip={() => {
+                  if (window.launchSnippingTool) window.launchSnippingTool();
+                }}
+                handleClose={() => {
+                  const existingAlert = document.querySelector('#react-root');
+                  if (existingAlert) {
+                    const root = createRoot(existingAlert);
+                    root.unmount();
+                    document.body.removeChild(existingAlert);
+                    const floatBtn = document.getElementById('ai-float-btn');
+                    if (floatBtn) floatBtn.style.display = 'block';
+                  }
+                }}
+                handleVoiceToggle={handleVoiceToggle}
+                isRecording={isRecording}
+              />
+              <ChatContent
+                conversation={conversation}
+                isLoading={isLoading}
+                isContinued={isContinued}
+                containsMath={containsMath}
+                theme={theme}
+                iframeRef={iframeRef}
+                handleContinueGenerating={handleContinueGenerating}
+              />
+              <ChatFooter
+                userInput={userInput}
+                setUserInput={setUserInput}
+                handleSendMessage={handleSendMessage}
+                theme={theme}
+              />
+            </Paper>
+          </Rnd>
+        );
+      }
+    }
   };
 
   return (
@@ -435,7 +442,7 @@ const AIResponseAlert = forwardRef(({ initialQuery }, ref) => {
         width: '100%',
         height: '100%',
         zIndex: 2000,
-        pointerEvents: 'none',
+        pointerEvents: isPopup ? 'auto' : 'none',
       }}
       data-theme={theme}
     >
