@@ -10,6 +10,27 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { FaCopy } from 'react-icons/fa';
 import { getLanguageFromFence, getCodeContent } from '../utils';
 
+// Create a custom style object that merges oneDark but overrides token backgrounds.
+const customOneDark = {
+  ...oneDark,
+
+  // Force the overall <pre> background to #2e3440.
+  'pre[class*="language-"]': {
+    ...oneDark['pre[class*="language-"]'],
+    background: '#2e3440 !important',
+  },
+  // Force the <code> background to be transparent so we don't stack extra highlights.
+  'code[class*="language-"]': {
+    ...oneDark['code[class*="language-"]'],
+    background: 'transparent !important',
+  },
+
+  // Ensure that any nested tokens also have a transparent background.
+  'hljs *': {
+    background: 'transparent !important',
+  },
+};
+
 const CodeBlock = ({ content, theme, onCopy }) => {
   const lang = getLanguageFromFence(content);
   const pureCode = getCodeContent(content);
@@ -19,9 +40,9 @@ const CodeBlock = ({ content, theme, onCopy }) => {
       sx={{
         position: 'relative',
         my: 1,
-        backgroundColor: '#2e3440',
         borderRadius: 4,
         overflow: 'hidden',
+        backgroundColor: '#2e3440', // Keep the block's overall dark background
       }}
     >
       <IconButton
@@ -39,14 +60,15 @@ const CodeBlock = ({ content, theme, onCopy }) => {
       >
         <FaCopy style={{ fontSize: '0.9rem', color: '#fff' }} />
       </IconButton>
+
       <SyntaxHighlighter
         language={lang}
-        style={oneDark}
+        style={customOneDark}
         customStyle={{
           margin: 0,
           padding: '16px',
-          backgroundColor: '#2e3440',
           borderRadius: 4,
+          backgroundColor: 'transparent', // We rely on the <pre> style for the overall bg
         }}
       >
         {pureCode}
