@@ -167,6 +167,21 @@ if (document.readyState === 'complete') {
   window.addEventListener('load', injectFloatingButton);
 }
 
+
+function removeExistingPrompt() {
+  const existingPrompt = document.querySelector('#prompt-root');
+  if (existingPrompt) {
+    try {
+      const root = createRoot(existingPrompt);
+      root.unmount();
+    } catch (e) {
+      // Ignore errors during unmount
+    }
+    document.body.removeChild(existingPrompt);
+  }
+}
+
+
 /**
  * Launches the snipping tool overlay.
  * After the user snips an area, the image is pre-processed and then
@@ -423,9 +438,9 @@ function removeExistingAlert() {
  * @param {function} sendResponse - The callback to send the response.
  */
 function renderPromptBox(selectedText, sendResponse) {
-  removeExistingAlert();
+  removeExistingPrompt(); // remove any existing prompt container
   const promptBox = document.createElement('div');
-  promptBox.id = 'react-root';
+  promptBox.id = 'prompt-root';
   document.body.appendChild(promptBox);
   const root = createRoot(promptBox);
   root.render(
@@ -433,7 +448,7 @@ function renderPromptBox(selectedText, sendResponse) {
       selectedText={selectedText}
       onSubmit={(additionalText) => {
         sendResponse({ additionalText });
-        removeExistingAlert();
+        removeExistingPrompt(); // remove prompt after submission
       }}
     />
   );

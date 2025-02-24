@@ -157,11 +157,13 @@ function handleTextCaptureWithPrompt(tabId, combinedText) {
   injectConsoleLog(tabId, "Captured Text with Prompt: " + combinedText);
   sendNewUserQuery(tabId, combinedText);
   sendTextToAI(tabId, combinedText, (response) => {
-    injectConsoleLog(tab.id, "AI Response: " + response);
+    // Use tabId instead of tab.id
+    injectConsoleLog(tabId, "AI Response: " + response);
     updateAIResponse(tabId, response);
     chrome.runtime.sendMessage({ type: 'openChat', message: response });
   });
 }
+
 
 /**
  * captureHighlightedText
