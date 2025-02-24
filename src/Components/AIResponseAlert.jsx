@@ -260,6 +260,25 @@ const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
     );
   };
 
+  // Update page layout immediately when docking toggles.
+  useEffect(() => {
+    if (isDocked) {
+      document.body.style.marginRight = `${dockedWidth}px`;
+      document.documentElement.style.setProperty('--docked-width', `${dockedWidth}px`);
+    } else {
+      document.body.style.marginRight = '0px';
+      document.documentElement.style.removeProperty('--docked-width');
+    }
+  }, [isDocked, dockedWidth]);
+
+  // Cleanup margin when component unmounts.
+  useEffect(() => {
+    return () => {
+      document.body.style.marginRight = '0px';
+      document.documentElement.style.removeProperty('--docked-width');
+    };
+  }, []);
+
   // When rendering in popup mode, remove border radius.
   const commonPaperStyles = {
     display: 'flex',
@@ -300,39 +319,43 @@ const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
       );
     } else {
       if (isDocked) {
+        // In docked mode we force fixed positioning so that the chat window is immediately at the right,
+        // and the body margin (set in the useEffect above) ensures the page content is pushed aside.
         return (
           <Rnd
             size={{ width: dockedWidth, height: window.innerHeight }}
-            position={{
-              x: Math.round(window.innerWidth - dockedWidth),
-              y: 0,
-            }}
+            position={{ x: window.innerWidth - dockedWidth, y: 0 }}
             minWidth={300}
             maxWidth={800}
             disableDragging={true}
             enableResizing={{ left: true }}
             bounds="window"
+            style={{ position: 'fixed', top: 0, right: 0, zIndex: 1500, pointerEvents: 'all' }}
+            // Prevent any drag or resize events from propagating when docked.
+            onDragStart={(e) => e.preventDefault()}
+            onResizeStart={(e) => e.stopPropagation()}
             onResizeStop={(e, direction, refElement) => {
               const newWidth = parseInt(refElement.style.width, 10);
               setDockedWidth(newWidth);
-              if (isDocked) {
-                document.body.style.marginRight = `${newWidth}px`;
-                document.documentElement.style.setProperty('--docked-width', `${newWidth}px`);
-              }
+              document.body.style.marginRight = `${newWidth}px`;
+              document.documentElement.style.setProperty('--docked-width', `${newWidth}px`);
             }}
-            style={{ pointerEvents: 'all', zIndex: 1500 }}
           >
             <Paper sx={commonPaperStyles} elevation={6}>
               <ChatHeader
                 theme={theme}
                 isPopup={false}
                 isDocked={isDocked}
+                dockedWidth={dockedWidth}
                 toggleDock={() => setIsDocked((prev) => !prev)}
                 toggleTheme={toggleTheme}
                 handleSnip={() => {
                   if (window.launchSnippingTool) window.launchSnippingTool();
                 }}
                 handleClose={() => {
+                  // Restore page layout on close.
+                  document.body.style.marginRight = '0px';
+                  document.documentElement.style.removeProperty('--docked-width');
                   const existingAlert = document.querySelector('#react-root');
                   if (existingAlert) {
                     const root = createRoot(existingAlert);
@@ -399,6 +422,8 @@ const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
                   if (window.launchSnippingTool) window.launchSnippingTool();
                 }}
                 handleClose={() => {
+                  document.body.style.marginRight = '0px';
+                  document.documentElement.style.removeProperty('--docked-width');
                   const existingAlert = document.querySelector('#react-root');
                   if (existingAlert) {
                     const root = createRoot(existingAlert);

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ClickAI",
-  "description": "Get quick and simple AI assistance in the same tab. Highlight text, screensnip with OCR, and use voice input to receive answers in no time.",
+  "description": "Quick and simple AI assistance in the same tab. Highlight text, screensnip with OCR, and use voice input for fast answers.",
   "version": "1.0",
   "permissions": [
     "contextMenus",
