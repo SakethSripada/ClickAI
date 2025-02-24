@@ -1,3 +1,9 @@
+/*****************************************************
+ * src/MessageBubble.js
+ *
+ * Renders an individual message bubble. It supports
+ * both text and code blocks.
+ *****************************************************/
 import React from 'react';
 import { Box, Paper, IconButton } from '@mui/material';
 import { Slide } from '@mui/material';
@@ -15,7 +21,7 @@ const MessageBubble = ({ message, theme, isPopup }) => {
 
   // Define conditional text style based on popup mode.
   const textStyle = {
-    fontSize: isPopup ? '1rem' : '1rem', // Increase font size in popup mode
+    fontSize: isPopup ? '1rem' : '1rem', // adjust font size if needed
     lineHeight: 1.5,
   };
 
@@ -48,7 +54,7 @@ const MessageBubble = ({ message, theme, isPopup }) => {
             position: 'relative',
             maxWidth: '70%',
             px: 2,
-            py: 1,
+            py: isPopup ? 0.5 : 1, // slightly less vertical padding in popup mode
             borderRadius: bubbleBorderRadius,
             backgroundColor: isUser
               ? theme === 'light'

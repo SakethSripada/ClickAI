@@ -34,46 +34,47 @@ const ChatHeader = ({
         }
       `}</style>
       <AppBar
-        position="static" 
+        position="static"
         className="chat-header-drag-handle"
         sx={{
           background: theme === 'light'
-            ? 'linear-gradient(135deg, #7f72f0, #3aa0ff)'
-            : 'linear-gradient(135deg, #333, #555)',
-          boxShadow: 3,
+            ? 'linear-gradient(135deg, #4e54c8, #8f94fb)'
+            : 'linear-gradient(135deg, #222, #444)',
+          boxShadow: 4,
           cursor: isPopup ? 'default' : 'move',
-          px: 1,
-          pt: { xs: 2, sm: 1 },
+          px: 2,
+          py: 1,
+          borderBottom: '1px solid rgba(255,255,255,0.2)',
         }}
       >
         <Toolbar
           sx={{
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'stretch',
-            gap: 1,
-            transition: 'all 0.3s ease',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
           <Typography
-            variant="h6"
+            variant="h5"
             component="div"
-            sx={{ textAlign: 'center', mt: { xs: 1, sm: 0 } }}
+            sx={{
+              fontWeight: 600,
+              color: '#fff',
+              textTransform: 'none',
+              fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+              fontSize: '1.5rem',
+            }}
           >
             ClickAI
           </Typography>
           <Box
             sx={{
-              display: 'grid',
-              gridTemplateColumns: isPopup
-                ? 'repeat(1, 1fr)'
-                : { xs: 'repeat(2, 1fr)', sm: 'repeat(5, auto)' },
+              display: 'flex',
+              alignItems: 'center',
               gap: 1,
-              justifyContent: 'center',
-              mb: 1,
             }}
           >
-            {/* In non-popup mode, render Dock, Capture, and Close controls */}
+            {/* In non-popup mode, render Dock, Capture, Voice controls, then dark mode toggle, and finally the Close button */}
             {!isPopup && (
               <>
                 <Button
@@ -83,6 +84,7 @@ const ChatHeader = ({
                     borderColor: '#fff',
                     color: '#fff',
                     textTransform: 'none',
+                    fontSize: '0.875rem',
                     '&:hover': { backgroundColor: 'rgba(255,255,255,0.2)' },
                   }}
                 >
@@ -90,9 +92,6 @@ const ChatHeader = ({
                 </Button>
                 <IconButton onClick={handleSnip} sx={{ color: '#fff' }} title="Capture Area">
                   <FaCamera />
-                </IconButton>
-                <IconButton onClick={handleClose} sx={{ color: '#fff' }} title="Close Chat">
-                  <FaTimes />
                 </IconButton>
                 <IconButton onClick={handleVoiceToggle} sx={{ color: '#fff', position: 'relative' }} title="Voice Input">
                   {isRecording ? <FaStop /> : <FaMicrophone />}
@@ -109,21 +108,32 @@ const ChatHeader = ({
                     }}></span>
                   )}
                 </IconButton>
+                <IconButton
+                  onClick={toggleTheme}
+                  sx={{
+                    color: '#fff',
+                  }}
+                  title="Toggle Dark/Light Mode"
+                >
+                  {theme === 'light' ? <FaMoon /> : <FaSun />}
+                </IconButton>
+                <IconButton onClick={handleClose} sx={{ color: '#fff' }} title="Close Chat">
+                  <FaTimes />
+                </IconButton>
               </>
             )}
-            {/* These controls always render */}
-            <Button
-              variant="outlined"
-              onClick={toggleTheme}
-              sx={{
-                borderColor: '#fff',
-                color: '#fff',
-                textTransform: 'none',
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.2)' },
-              }}
-            >
-              {theme === 'light' ? <FaMoon /> : <FaSun />}
-            </Button>
+            {/* In popup mode, only render the dark mode toggle as an icon */}
+            {isPopup && (
+              <IconButton
+                onClick={toggleTheme}
+                sx={{
+                  color: '#fff',
+                }}
+                title="Toggle Dark/Light Mode"
+              >
+                {theme === 'light' ? <FaMoon /> : <FaSun />}
+              </IconButton>
+            )}
           </Box>
         </Toolbar>
       </AppBar>

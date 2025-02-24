@@ -42,6 +42,21 @@ const ChatContent = ({
         overflowY: 'auto',
         backgroundColor: theme === 'light' ? '#f9f9f9' : '#2e2e2e',
         userSelect: 'text',
+        // Custom Scrollbar Styles
+        '&::-webkit-scrollbar': {
+          width: '8px',
+        },
+        '&::-webkit-scrollbar-track': {
+          background: theme === 'light' ? '#f1f1f1' : '#3e3e3e',
+          borderRadius: '4px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: theme === 'light' ? '#c1c1c1' : '#888',
+          borderRadius: '4px',
+        },
+        '&::-webkit-scrollbar-thumb:hover': {
+          backgroundColor: theme === 'light' ? '#a8a8a8' : '#555',
+        },
       }}
     >
       {conversation.map((msg, i) => (

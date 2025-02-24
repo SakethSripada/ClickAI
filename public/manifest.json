@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ClickAI",
-  "description": "A Chrome extension for quick AI queries.",
+  "description": "Get quick and simple AI assistance in the same tab. Highlight text, screensnip with OCR, and use voice input to receive answers in no time.",
   "version": "1.0",
   "permissions": [
     "contextMenus",
