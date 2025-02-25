@@ -104,19 +104,16 @@ const SnippingTool = ({ onComplete, onCancel }) => {
           ></div>
         )}
       </div>
-      {/* Render controls when not actively selecting */}
-      {!isSelecting && (
-        <div className="snipping-controls">
-          {selection && (
-            <button onClick={handleSend} className="snip-send-btn">
-              Send to AI
-            </button>
-          )}
-          <button onClick={onCancel} className="snip-cancel-btn">
-            Cancel
+      <div className="snipping-controls">
+        {selection && !isSelecting && (
+          <button onClick={handleSend} className="snip-send-btn">
+            Send to AI
           </button>
-        </div>
-      )}
+        )}
+        <button onClick={onCancel} className="snip-cancel-btn">
+          Cancel
+        </button>
+      </div>
     </div>
   );
 };
