@@ -48,10 +48,33 @@ const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
   const recognitionRef = useRef(null);
   const iframeRef = useRef(null);
 
+  // Add state for undocked dimensions.
+  const [undockedDimensions, setUndockedDimensions] = useState({
+    x: Math.round(window.innerWidth / 2 - 300),
+    y: Math.round(window.innerHeight / 2 - 200),
+    width: 600,
+    height: 400,
+  });
+
+
   // Define toggleTheme function to flip light/dark mode.
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
+
+  // Replace inline toggle with a dedicated function.
+const handleToggleDock = () => {
+  if (isDocked) {
+    // Reset undocked dimensions to a default, centered state when undocking.
+    setUndockedDimensions({
+      x: Math.round(window.innerWidth / 2 - 300),
+      y: Math.round(window.innerHeight / 2 - 200),
+      width: 600,
+      height: 400,
+    });
+  }
+  setIsDocked((prev) => !prev);
+};
 
   // Expose imperative methods to append a new query and update the AI response.
   useImperativeHandle(ref, () => ({
@@ -389,12 +412,8 @@ const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
       } else {
         return (
           <Rnd
-            default={{
-              x: Math.round(window.innerWidth / 2 - 300),
-              y: Math.round(window.innerHeight / 2 - 200),
-              width: 600,
-              height: 400,
-            }}
+            size={{ width: undockedDimensions.width, height: undockedDimensions.height }}
+            position={{ x: undockedDimensions.x, y: undockedDimensions.y }}
             minWidth={300}
             minHeight={200}
             bounds="window"
@@ -409,6 +428,17 @@ const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
               bottomLeft: true,
               topLeft: true,
             }}
+            onDragStop={(e, d) => {
+              setUndockedDimensions((prev) => ({ ...prev, x: d.x, y: d.y }));
+            }}
+            onResizeStop={(e, direction, ref, delta, position) => {
+              setUndockedDimensions({
+                width: parseInt(ref.style.width, 10),
+                height: parseInt(ref.style.height, 10),
+                x: position.x,
+                y: position.y,
+              });
+            }}
             style={{ pointerEvents: 'all', zIndex: 1500 }}
           >
             <Paper sx={commonPaperStyles} elevation={6}>
@@ -416,12 +446,13 @@ const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
                 theme={theme}
                 isPopup={false}
                 isDocked={isDocked}
-                toggleDock={() => setIsDocked((prev) => !prev)}
+                toggleDock={handleToggleDock} // use our new function here
                 toggleTheme={toggleTheme}
                 handleSnip={() => {
                   if (window.launchSnippingTool) window.launchSnippingTool();
                 }}
                 handleClose={() => {
+                  // Restore page layout on close.
                   document.body.style.marginRight = '0px';
                   document.documentElement.style.removeProperty('--docked-width');
                   const existingAlert = document.querySelector('#react-root');
@@ -453,7 +484,7 @@ const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
               />
             </Paper>
           </Rnd>
-        );
+        );        
       }
     }
   };

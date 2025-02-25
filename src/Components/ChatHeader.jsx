@@ -5,13 +5,14 @@
  * In popup mode (isPopup=true), the header shows only the
  * title, theme toggle, and voice input controls.
  *
- * This version maintains professional proportions. It adds
- * extra spacing between the header title and the icon group
- * and ensures that icons remain visible on narrow screens by
- * enabling horizontal scrolling if necessary.
+ * This version has been updated for improved responsiveness.
+ * It adapts padding, font sizes, icon sizes, and layout based
+ * on screen size to avoid cutoffs and maintain a clean look.
+ * Also, the vertical height is reduced on very small screens.
  *****************************************************/
 import React from 'react';
-import { AppBar, Toolbar, Typography, Box, Button, IconButton } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Button, IconButton, useMediaQuery } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { FaTimes, FaCamera, FaMoon, FaSun, FaMicrophone, FaStop } from 'react-icons/fa';
 
 const ChatHeader = ({
@@ -25,6 +26,10 @@ const ChatHeader = ({
   isRecording,
   isPopup = false,
 }) => {
+  const muiTheme = useTheme();
+  // Consider screens smaller than 'sm' as small screens
+  const isSmallScreen = useMediaQuery(muiTheme.breakpoints.down('sm'));
+
   return (
     <>
       <style>{`
@@ -42,20 +47,19 @@ const ChatHeader = ({
             ? 'linear-gradient(135deg, #4e54c8, #8f94fb)'
             : 'linear-gradient(135deg, #222, #444)',
           boxShadow: 4,
-          px: 2,
-          py: 1,
+          px: { xs: 1, sm: 2 },
+          py: { xs: 0.5, sm: 1 },
           borderBottom: '1px solid rgba(255,255,255,0.2)',
-          minHeight: '64px', // maintain a fixed vertical height
+          minHeight: { xs: '48px', sm: '64px' },
         }}
       >
         <Toolbar
           sx={{
             display: 'flex',
+            flexDirection: { xs: 'row', sm: 'row' }, // force row layout on all sizes
             alignItems: 'center',
             justifyContent: 'space-between',
-            // Allow horizontal scrolling if there isn’t enough space
-            overflowX: 'auto',
-            whiteSpace: 'nowrap',
+            gap: 1,
           }}
         >
           <Typography
@@ -66,9 +70,8 @@ const ChatHeader = ({
               color: '#fff',
               textTransform: 'none',
               fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-              fontSize: '1.5rem',
-              flexShrink: 0,
-              mr: 2, // extra margin to separate from icons
+              fontSize: { xs: '1.1rem', sm: '1.5rem' },
+              mr: { xs: 1, sm: 2 },
             }}
           >
             ClickAI
@@ -76,9 +79,10 @@ const ChatHeader = ({
           <Box
             sx={{
               display: 'flex',
+              flexWrap: 'wrap',
               alignItems: 'center',
-              gap: 1,
-              flexShrink: 0,
+              justifyContent: 'center',
+              gap: { xs: 0.5, sm: 1, md: 1.5 },
             }}
           >
             {!isPopup && (
@@ -90,18 +94,22 @@ const ChatHeader = ({
                     borderColor: '#fff',
                     color: '#fff',
                     textTransform: 'none',
-                    fontSize: '0.875rem',
+                    fontSize: { xs: '0.65rem', sm: '0.875rem' },
                     '&:hover': { backgroundColor: 'rgba(255,255,255,0.2)' },
-                    minWidth: '80px',
+                    minWidth: { xs: '50px', sm: '80px' },
+                    padding: { xs: '2px 6px', sm: '6px 12px' },
                   }}
                 >
                   {isDocked ? 'Undock' : 'Dock'}
                 </Button>
                 <IconButton onClick={handleSnip} sx={{ color: '#fff' }} title="Capture Area">
-                  <FaCamera size={20} />
+                  <FaCamera size={isSmallScreen ? 16 : 20} />
                 </IconButton>
                 <IconButton onClick={handleVoiceToggle} sx={{ color: '#fff', position: 'relative' }} title="Voice Input">
-                  {isRecording ? <FaStop size={20} /> : <FaMicrophone size={20} />}
+                  {isRecording
+                    ? <FaStop size={isSmallScreen ? 16 : 20} />
+                    : <FaMicrophone size={isSmallScreen ? 16 : 20} />
+                  }
                   {isRecording && (
                     <span style={{
                       position: 'absolute',
@@ -116,16 +124,22 @@ const ChatHeader = ({
                   )}
                 </IconButton>
                 <IconButton onClick={toggleTheme} sx={{ color: '#fff' }} title="Toggle Dark/Light Mode">
-                  {theme === 'light' ? <FaMoon size={20} /> : <FaSun size={20} />}
+                  {theme === 'light'
+                    ? <FaMoon size={isSmallScreen ? 16 : 20} />
+                    : <FaSun size={isSmallScreen ? 16 : 20} />
+                  }
                 </IconButton>
                 <IconButton onClick={handleClose} sx={{ color: '#fff' }} title="Close Chat">
-                  <FaTimes size={20} />
+                  <FaTimes size={isSmallScreen ? 16 : 20} />
                 </IconButton>
               </>
             )}
             {isPopup && (
               <IconButton onClick={toggleTheme} sx={{ color: '#fff' }} title="Toggle Dark/Light Mode">
-                {theme === 'light' ? <FaMoon size={20} /> : <FaSun size={20} />}
+                {theme === 'light'
+                  ? <FaMoon size={isSmallScreen ? 16 : 20} />
+                  : <FaSun size={isSmallScreen ? 16 : 20} />
+                }
               </IconButton>
             )}
           </Box>
