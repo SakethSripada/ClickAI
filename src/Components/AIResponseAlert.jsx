@@ -348,7 +348,7 @@ const handleToggleDock = () => {
           <Rnd
             size={{ width: dockedWidth, height: window.innerHeight }}
             position={{ x: window.innerWidth - dockedWidth, y: 0 }}
-            minWidth={300}
+            minWidth={320}
             maxWidth={800}
             disableDragging={true}
             enableResizing={{ left: true }}
@@ -414,7 +414,7 @@ const handleToggleDock = () => {
           <Rnd
             size={{ width: undockedDimensions.width, height: undockedDimensions.height }}
             position={{ x: undockedDimensions.x, y: undockedDimensions.y }}
-            minWidth={300}
+            minWidth={320}
             minHeight={200}
             bounds="window"
             dragHandleClassName="chat-header-drag-handle"
