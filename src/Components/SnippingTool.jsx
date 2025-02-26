@@ -126,12 +126,9 @@ const SnippingTool = ({ onComplete, onCancel }) => {
           marginTop: '10px',
         }}
       >
-        {/* Always render the single Cancel button */}
-        {!hideCancel && (
           <button onClick={onCancel} className="snip-cancel-btn">
             Cancel
           </button>
-        )}
         {/* Render the Send button only after selection is made and finished */}
         {selection && !isSelecting && (
           <button onClick={handleSend} className="snip-send-btn">

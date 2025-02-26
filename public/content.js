@@ -204,14 +204,20 @@ function removeExistingPrompt() {
  * and then sent as a normal user query to the AI backend.
  */
 function launchSnippingTool() {
+  // Check if a snipping container already exists and remove it.
+  const existingContainer = document.getElementById('snip-container');
+  if (existingContainer) {
+    existingContainer.remove();
+  }
+  
   // Create container for SnippingTool
   const snipContainer = document.createElement('div');
   snipContainer.id = 'snip-container';
   document.body.appendChild(snipContainer);
   const snipRoot = createRoot(snipContainer);
+  
   snipRoot.render(
     <SnippingTool
-      hideCancel={true}
       onComplete={(croppedImageData) => {
         // Remove snipping tool overlay immediately
         snipRoot.unmount();
