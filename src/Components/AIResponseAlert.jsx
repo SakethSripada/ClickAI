@@ -481,6 +481,7 @@ const handleToggleDock = () => {
                 setUserInput={setUserInput}
                 handleSendMessage={handleSendMessage}
                 theme={theme}
+                conversation={conversation}
               />
             </Paper>
           </Rnd>
