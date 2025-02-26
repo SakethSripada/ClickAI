@@ -9,6 +9,7 @@
  * validation, and OCR image pre-processing to optimize 
  * recognition accuracy and eliminate unnecessary API calls.
  *****************************************************/
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import AIResponseAlert from '../src/Components/AIResponseAlert';
@@ -17,7 +18,21 @@ import SnippingTool from '../src/Components/SnippingTool';
 import Tesseract from 'tesseract.js'; // Import Tesseract OCR
 import { AiOutlineMessage } from 'react-icons/ai'; 
 
+// ==============================================
+// ERROR RESPONSE CONSTANTS (modifiable)
+// ==============================================
+const ERROR_MESSAGES = {
+  NO_TEXT_DETECTED: "[No text detected]",
+  OCR_ERROR: "OCR Error: The website may be blocking image scanning workers. Try sending the text by right-clicking instead.",
+  UNEXPECTED_OCR_ERROR: "Error: Unexpected error occurred during OCR processing. Please try again.",
+  FETCH_ERROR: "Error: Unable to contact AI server. Please check your network connection.",
+  GLOBAL_ERROR_PREFIX: "Global Error: ",
+  UNHANDLED_REJECTION_PREFIX: "Unhandled Rejection: "
+};
+
+// ==============================================
 // Global references to the alert container and its React ref
+// ==============================================
 let aiResponseAlertRoot = null;
 window.aiResponseAlertRef = null;
 
@@ -181,7 +196,6 @@ function removeExistingPrompt() {
   }
 }
 
-
 /**
  * Launches the snipping tool overlay.
  * After the user snips an area, the image is pre-processed and then
@@ -210,7 +224,7 @@ function launchSnippingTool() {
             const extractedText = text.trim();
             if (!extractedText) {
               // If OCR yields no text, notify the user and do not call API
-              renderOrAppendQuery('[No text detected]');
+              renderOrAppendQuery(ERROR_MESSAGES.NO_TEXT_DETECTED);
               if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
                 window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No text detected in the snip.');
               }
@@ -248,16 +262,23 @@ function launchSnippingTool() {
               })
               .catch(error => {
                 console.error('Error sending text to AI:', error);
-                if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                  window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Unable to contact AI server');
-                }
+                // For fetch errors, show a generic network error message
+                updateAIResponse(null, ERROR_MESSAGES.FETCH_ERROR);
               });
           })
           .catch(err => {
             console.error('Error during OCR processing:', err);
-            renderOrAppendQuery('[OCR Error. This website may be blocking the image scanning workers. Try sending the text by right clicking on it instead.]');
-            if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-              window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: OCR processing failed.');
+            // Distinguish OCR-related errors from unexpected ones
+            if (err && err.message && (err.message.toLowerCase().includes("ocr") || err.message.toLowerCase().includes("preprocessing"))) {
+              renderOrAppendQuery(ERROR_MESSAGES.OCR_ERROR);
+              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: OCR processing failed.');
+              }
+            } else {
+              renderOrAppendQuery(ERROR_MESSAGES.UNEXPECTED_OCR_ERROR);
+              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Unexpected error occurred.');
+              }
             }
           });
       }}
@@ -272,8 +293,8 @@ function launchSnippingTool() {
 /**
  * NEW FUNCTION:
  * Launches the snipping tool overlay with an additional prompt.
- * After the user snips an area, the image is pre-processed and then processed
- * via OCR to extract text. Then the user is asked for an additional prompt.
+ * After the user snips an area, the image is pre-processed and then
+ * processed via OCR to extract text. Then the user is asked for an additional prompt.
  * Both the extracted text and additional prompt are combined and sent to the AI backend.
  */
 function launchSnippingToolWithPrompt() {
@@ -298,7 +319,7 @@ function launchSnippingToolWithPrompt() {
             const extractedText = text.trim();
             if (!extractedText) {
               // If OCR yields no text, notify the user and do not call API
-              renderOrAppendQuery('[No text detected]');
+              renderOrAppendQuery(ERROR_MESSAGES.NO_TEXT_DETECTED);
               if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
                 window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No text detected in the snip.');
               }
@@ -339,17 +360,23 @@ function launchSnippingToolWithPrompt() {
                 })
                 .catch(error => {
                   console.error('Error sending text to AI:', error);
-                  if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                    window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Unable to contact AI server');
-                  }
+                  // For fetch errors, show a generic network error message
+                  updateAIResponse(null, ERROR_MESSAGES.FETCH_ERROR);
                 });
             });
           })
           .catch(err => {
             console.error('Error during OCR processing:', err);
-            renderOrAppendQuery('[OCR Error. This website may be blocking the image scanning workers. Try sending the text by right clicking on it instead.]');
-            if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-              window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: OCR processing failed.');
+            if (err && err.message && (err.message.toLowerCase().includes("ocr") || err.message.toLowerCase().includes("preprocessing"))) {
+              renderOrAppendQuery(ERROR_MESSAGES.OCR_ERROR);
+              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: OCR processing failed.');
+              }
+            } else {
+              renderOrAppendQuery(ERROR_MESSAGES.UNEXPECTED_OCR_ERROR);
+              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Unexpected error occurred.');
+              }
             }
           });
       }}
@@ -549,6 +576,24 @@ export {
   updateAIResponse,
   injectConsoleLog
 };
+
+// Global error handling for any uncaught errors or unhandled rejections
+window.addEventListener('error', (e) => {
+  console.error('Global error caught:', e.message);
+  renderOrAppendQuery(`${ERROR_MESSAGES.GLOBAL_ERROR_PREFIX}${e.message}`);
+  if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+    window.aiResponseAlertRef.current.updateLastAssistantResponse(`${ERROR_MESSAGES.GLOBAL_ERROR_PREFIX}${e.message}`);
+  }
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('Unhandled rejection:', e.reason);
+  const errorMsg = e.reason && e.reason.message ? e.reason.message : 'Unhandled rejection error';
+  renderOrAppendQuery(`${ERROR_MESSAGES.UNHANDLED_REJECTION_PREFIX}${errorMsg}`);
+  if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+    window.aiResponseAlertRef.current.updateLastAssistantResponse(`${ERROR_MESSAGES.UNHANDLED_REJECTION_PREFIX}${errorMsg}`);
+  }
+});
 
 // Inject the floating button when the script runs
 injectFloatingButton();

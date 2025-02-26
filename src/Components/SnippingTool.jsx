@@ -24,6 +24,19 @@ const SnippingTool = ({ onComplete, onCancel }) => {
     });
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onCancel]);
+
   const handleMouseDown = (e) => {
     if (!screenshot) return;
     const rect = overlayRef.current.getBoundingClientRect();
@@ -104,15 +117,25 @@ const SnippingTool = ({ onComplete, onCancel }) => {
           ></div>
         )}
       </div>
-      <div className="snipping-controls">
+      <div
+        className="snipping-controls"
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '10px',
+          marginTop: '10px',
+        }}
+      >
+        {/* Always render the single Cancel button */}
+        <button onClick={onCancel} className="snip-cancel-btn">
+          Cancel
+        </button>
+        {/* Render the Send button only after selection is made and finished */}
         {selection && !isSelecting && (
           <button onClick={handleSend} className="snip-send-btn">
             Send to AI
           </button>
         )}
-        <button onClick={onCancel} className="snip-cancel-btn">
-          Cancel
-        </button>
       </div>
     </div>
   );

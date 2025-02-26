@@ -17,12 +17,13 @@ const PromptBox = ({ selectedText, onSubmit }) => {
 
   const handleClose = (e) => {
     e.stopPropagation();
-    const existingAlert = document.querySelector('#react-root');
-    if (existingAlert) {
+    const existingPrompt = document.querySelector('#prompt-root');
+    if (existingPrompt) {
+      // Delay removal slightly to allow any UI transitions if needed
       setTimeout(() => {
-        const root = createRoot(existingAlert);
+        const root = createRoot(existingPrompt);
         root.unmount();
-        document.body.removeChild(existingAlert);
+        document.body.removeChild(existingPrompt);
       }, 100);
     }
   };
