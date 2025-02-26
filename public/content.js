@@ -196,6 +196,7 @@ function removeExistingPrompt() {
   }
 }
 
+
 /**
  * Launches the snipping tool overlay.
  * After the user snips an area, the image is pre-processed and then
@@ -210,6 +211,7 @@ function launchSnippingTool() {
   const snipRoot = createRoot(snipContainer);
   snipRoot.render(
     <SnippingTool
+      hideCancel={true}
       onComplete={(croppedImageData) => {
         // Remove snipping tool overlay immediately
         snipRoot.unmount();
