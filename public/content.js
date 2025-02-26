@@ -250,7 +250,10 @@ function launchSnippingTool() {
             // Send the extracted text to AI as a normal text query
             fetch('http://localhost:5010/generate', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'x-extension-secret': process.env.EXTENSION_SECRET
+              },
               body: JSON.stringify({
                 conversationHistory: [{ sender: 'user', text: extractedText }]
               })
@@ -348,7 +351,10 @@ function launchSnippingToolWithPrompt() {
               // Send the combined query to AI as a normal text query
               fetch('http://localhost:5010/generate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'x-extension-secret': process.env.EXTENSION_SECRET
+                },
                 body: JSON.stringify({
                   conversationHistory: [{ sender: 'user', text: combinedQuery }]
                 })

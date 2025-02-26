@@ -12,11 +12,19 @@ const port = process.env.PORT || 5010;
 // Set security-related HTTP headers
 app.use(helmet());
 
-// Enable CORS with strict settings for production
+// Custom CORS: only allow requests from a trusted origin (e.g., your extension)
+const allowedOrigin = process.env.ALLOWED_ORIGIN || 'chrome-extension://gfgohihmefedanphpegkggbmhkadnboi'; // update with your extension's ID
 app.use(cors({
-  origin: '*',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like Postman) or matching allowed origin
+    if (!origin || origin === allowedOrigin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-extension-secret'],
   credentials: true
 }));
 
@@ -29,6 +37,16 @@ const apiLimiter = rateLimit({
 app.use(apiLimiter);
 
 app.use(express.json());
+
+// Middleware to check for the shared secret
+const EXTENSION_SECRET = process.env.EXTENSION_SECRET;
+app.use((req, res, next) => {
+  const headerSecret = req.headers['x-extension-secret'];
+  if (headerSecret !== EXTENSION_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized access' });
+  }
+  next();
+});
 
 const MAX_TOKENS = 16385; 
 const RESPONSE_TOKENS = 1000;  

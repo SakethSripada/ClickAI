@@ -187,7 +187,10 @@ function captureHighlightedText() {
 function sendTextToAI(tabId, text, callback) {
   fetch('http://localhost:5010/generate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'x-extension-secret': process.env.EXTENSION_SECRET
+    },
     body: JSON.stringify({
       conversationHistory: [{ sender: 'user', text }]
     })
@@ -280,7 +283,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'continueChat') {
     fetch('http://localhost:5010/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-extension-secret': process.env.EXTENSION_SECRET
+      },
       body: JSON.stringify({
         conversationHistory: request.conversationHistory,
         continueId: request.continueId
@@ -312,17 +318,3 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-/**
- * Highlights the extension icon by setting a badge.
- */
-function highlightExtensionIcon() {
-  chrome.action.setBadgeText({ text: 'NEW' });
-  chrome.action.setBadgeBackgroundColor({ color: '#00FF00' });
-}
-
-/**
- * Clears the extension badge.
- */
-function clearBadge() {
-  chrome.action.setBadgeText({ text: '' });
-}
