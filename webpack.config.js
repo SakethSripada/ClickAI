@@ -49,9 +49,10 @@ module.exports = {
       React: "react",
       createRoot: ['react-dom/client', 'createRoot'],
     }),
-    // Inject the EXTENSION_SECRET from the env file into your bundled code.
+    // Inject the environment variables into your bundled code.
     new webpack.DefinePlugin({
-      'process.env.EXTENSION_SECRET': JSON.stringify(process.env.EXTENSION_SECRET || 'd3a1f6e4b8c9d7e2a3f1c5b6a9e8d7c4'),
+      'process.env.EXTENSION_SECRET': JSON.stringify(process.env.EXTENSION_SECRET),
+      'process.env.BASE_URL': JSON.stringify(process.env.BASE_URL),
     }),
   ],
   mode: 'production',
