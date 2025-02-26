@@ -1,15 +1,3 @@
-/*****************************************************
- * src/ChatHeader.js
- *
- * Renders the header with the title and control buttons.
- * In popup mode (isPopup=true), the header shows only the
- * title, theme toggle, and voice input controls.
- *
- * This version has been updated for improved responsiveness.
- * It adapts padding, font sizes, icon sizes, and layout based
- * on screen size to avoid cutoffs and maintain a clean look.
- * Also, the vertical height is reduced on very small screens.
- *****************************************************/
 import React from 'react';
 import { AppBar, Toolbar, Typography, Box, Button, IconButton, useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -33,6 +21,15 @@ const ChatHeader = ({
   return (
     <>
       <style>{`
+        .chat-header-drag-handle {
+          cursor: move;
+          user-select: none;
+          -webkit-user-select: none;
+          -webkit-user-drag: none;
+        }
+        .chat-header-drag-handle:active {
+          cursor: grabbing;
+        }
         @keyframes pulse {
           0% { transform: scale(1); opacity: 1; }
           50% { transform: scale(1.5); opacity: 0.5; }
@@ -41,6 +38,7 @@ const ChatHeader = ({
       `}</style>
       <AppBar
         position="static"
+        component="div" // Forces rendering as a div so it shows up on sites like Reddit
         className="chat-header-drag-handle"
         sx={{
           background: theme === 'light'
@@ -56,7 +54,7 @@ const ChatHeader = ({
         <Toolbar
           sx={{
             display: 'flex',
-            flexDirection: { xs: 'row', sm: 'row' }, // force row layout on all sizes
+            flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 1,
