@@ -12,20 +12,11 @@ const port = process.env.PORT || 5010;
 // Set security-related HTTP headers
 app.use(helmet());
 
-// Custom CORS: only allow requests from a trusted origin (e.g., your extension)
-const allowedOrigin = process.env.ALLOWED_ORIGIN || 'chrome-extension://gfgohihmefedanphpegkggbmhkadnboi'; // update with your extension's ID
+// Allow all origins
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like Postman) or matching allowed origin
-    if (!origin || origin === allowedOrigin) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-extension-secret'],
-  credentials: true
 }));
 
 // Rate limiting middleware to prevent abuse (e.g. DDOS)

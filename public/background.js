@@ -185,7 +185,7 @@ function captureHighlightedText() {
  * @param {function} callback - Callback function with the AI response.
  */
 function sendTextToAI(tabId, text, callback) {
-  fetch(`http://${process.env.BASE_URL}/generate`, {
+  fetch(`https://${process.env.BASE_URL}/generate`, {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
@@ -281,7 +281,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     clearBadge();
   }
   if (request.type === 'continueChat') {
-    fetch(`http://${process.env.BASE_URL}/generate`, {
+    fetch(`https://${process.env.BASE_URL}/generate`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',

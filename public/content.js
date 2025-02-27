@@ -248,7 +248,7 @@ function launchSnippingTool() {
               return;
             }
             // Send the extracted text to AI as a normal text query
-            fetch(`http://${process.env.BASE_URL}/generate`, {
+            fetch(`https://${process.env.BASE_URL}/generate`, {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -349,7 +349,7 @@ function launchSnippingToolWithPrompt() {
                 return;
               }
               // Send the combined query to AI as a normal text query
-              fetch(`http://${process.env.BASE_URL}/generate`, {
+              fetch(`https://${process.env.BASE_URL}/generate`, {
                 method: 'POST',
                 headers: { 
                   'Content-Type': 'application/json',
