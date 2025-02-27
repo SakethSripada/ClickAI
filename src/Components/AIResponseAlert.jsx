@@ -38,7 +38,9 @@ const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
   const [conversation, setConversation] = useState([]);
   const [userInput, setUserInput] = useState('');
   const [containsMath, setContainsMath] = useState(false);
-  const [theme, setTheme] = useState('light');
+  // Initialize theme as null until loaded
+  const [theme, setTheme] = useState(null);
+  const [themeLoaded, setThemeLoaded] = useState(false);
   const [isDocked, setIsDocked] = useState(false);
   const [dockedWidth, setDockedWidth] = useState(350);
   const [continueId, setContinueId] = useState(null);
@@ -56,25 +58,43 @@ const AIResponseAlert = forwardRef(({ initialQuery, isPopup = false }, ref) => {
     height: 400,
   });
 
+  // Retrieve the saved theme from chrome.storage.sync and mark as loaded
+  useEffect(() => {
+    chrome.storage.sync.get('clickaiTheme', (data) => {
+      setTheme(data.clickaiTheme || 'light');
+      setThemeLoaded(true);
+    });
+  }, []);
 
-  // Define toggleTheme function to flip light/dark mode.
+  // Update document styling when theme changes
+  useEffect(() => {
+    if (theme) {
+      document.body.dataset.theme = theme;
+    }
+  }, [theme]);
+
+  // Define toggleTheme function to flip light/dark mode and store the new value.
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+    setTheme((prevTheme) => {
+      const newTheme = prevTheme === 'light' ? 'dark' : 'light';
+      chrome.storage.sync.set({ clickaiTheme: newTheme });
+      return newTheme;
+    });
   };
 
   // Replace inline toggle with a dedicated function.
-const handleToggleDock = () => {
-  if (isDocked) {
-    // Reset undocked dimensions to a default, centered state when undocking.
-    setUndockedDimensions({
-      x: Math.round(window.innerWidth / 2 - 300),
-      y: Math.round(window.innerHeight / 2 - 200),
-      width: 600,
-      height: 400,
-    });
-  }
-  setIsDocked((prev) => !prev);
-};
+  const handleToggleDock = () => {
+    if (isDocked) {
+      // Reset undocked dimensions to a default, centered state when undocking.
+      setUndockedDimensions({
+        x: Math.round(window.innerWidth / 2 - 300),
+        y: Math.round(window.innerHeight / 2 - 200),
+        width: 600,
+        height: 400,
+      });
+    }
+    setIsDocked((prev) => !prev);
+  };
 
   // Expose imperative methods to append a new query and update the AI response.
   useImperativeHandle(ref, () => ({
@@ -446,7 +466,7 @@ const handleToggleDock = () => {
                 theme={theme}
                 isPopup={false}
                 isDocked={isDocked}
-                toggleDock={handleToggleDock} // use our new function here
+                toggleDock={handleToggleDock}
                 toggleTheme={toggleTheme}
                 handleSnip={() => {
                   if (window.launchSnippingTool) window.launchSnippingTool();
@@ -503,7 +523,7 @@ const handleToggleDock = () => {
       }}
       data-theme={theme}
     >
-      {renderWindow()}
+      {themeLoaded ? renderWindow() : <div />}
     </Box>
   );
 });
