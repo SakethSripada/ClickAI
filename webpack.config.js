@@ -40,9 +40,6 @@ module.exports = {
       patterns: [
         { from: 'public/manifest.json', to: 'manifest.json' },
         { from: 'public/logo192.png', to: 'logo192.png' },
-        { from: 'public/tex-chtml.js', to: 'tex-chtml.js' },
-        { from: 'public/sandbox.html', to: 'sandbox.html' },
-        { from: 'public/mathjax-handler.js', to: 'mathjax-handler.js' },
       ],
     }),
     new webpack.ProvidePlugin({

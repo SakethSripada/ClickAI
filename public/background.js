@@ -59,10 +59,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 function handleCaptureText(info, tab) {
   if (info.selectionText) {
     const selectedText = info.selectionText;
-    injectConsoleLog(tab.id, "Captured Text: " + selectedText);
     sendNewUserQuery(tab.id, selectedText);
     sendTextToAI(tab.id, selectedText, (response) => {
-      injectConsoleLog(tab.id, "AI Response: " + response);
       updateAIResponse(tab.id, response);
       chrome.runtime.sendMessage({ type: 'openChat', message: response });
     });
@@ -74,15 +72,12 @@ function handleCaptureText(info, tab) {
     }, (results) => {
       if (results && results[0] && results[0].result) {
         const selectedText = results[0].result;
-        injectConsoleLog(tab.id, "Captured Text: " + selectedText);
         sendNewUserQuery(tab.id, selectedText);
         sendTextToAI(tab.id, selectedText, (response) => {
-          injectConsoleLog(tab.id, "AI Response: " + response);
           updateAIResponse(tab.id, response);
           chrome.runtime.sendMessage({ type: 'openChat', message: response });
         });
       } else {
-        injectConsoleLog(tab.id, 'Error: No text selected');
         displayCustomAlert(tab.id, 'Error: No text selected');
       }
     });
@@ -113,7 +108,6 @@ function handleAddPromptAndCaptureText(info, tab) {
           handleTextCaptureWithPrompt(tab.id, combinedText);
         });
       } else {
-        injectConsoleLog(tab.id, 'Error: No text selected');
         displayCustomAlert(tab.id, 'Error: No text selected');
       }
     });
@@ -154,16 +148,12 @@ function promptForAdditionalText(tabId, selectedText, callback) {
  * @param {string} combinedText - The combined text input.
  */
 function handleTextCaptureWithPrompt(tabId, combinedText) {
-  injectConsoleLog(tabId, "Captured Text with Prompt: " + combinedText);
   sendNewUserQuery(tabId, combinedText);
   sendTextToAI(tabId, combinedText, (response) => {
-    // Use tabId instead of tab.id
-    injectConsoleLog(tabId, "AI Response: " + response);
     updateAIResponse(tabId, response);
     chrome.runtime.sendMessage({ type: 'openChat', message: response });
   });
 }
-
 
 /**
  * captureHighlightedText
@@ -200,13 +190,10 @@ function sendTextToAI(tabId, text, callback) {
       if (data && data.response) {
         callback(data.response);
       } else {
-        injectConsoleLog(tabId, 'Error: No response from AI');
         updateAIResponse(tabId, 'Error: No response from AI');
       }
     })
-    .catch(error => {
-      console.error('Error sending text to AI:', error);
-      injectConsoleLog(tabId, 'Error: Unable to contact AI server');
+    .catch(() => {
       updateAIResponse(tabId, 'Error: Unable to contact AI server');
     });
 }
@@ -261,11 +248,7 @@ function displayCustomAlert(tabId, message) {
  * @param {string} message - The message to log.
  */
 function injectConsoleLog(tabId, message) {
-  chrome.scripting.executeScript({
-    target: { tabId: tabId },
-    func: (msg) => console.log(msg),
-    args: [message]
-  });
+  // In production, logging is disabled.
 }
 
 /**
@@ -304,8 +287,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ error: 'No response from AI' });
         }
       })
-      .catch(err => {
-        console.error('Error in continueChat fetch:', err);
+      .catch(() => {
         sendResponse({ error: 'Unable to contact AI server' });
       });
     return true;
@@ -317,4 +299,3 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
-

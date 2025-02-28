@@ -22,12 +22,12 @@ import { AiOutlineMessage } from 'react-icons/ai';
 // ERROR RESPONSE CONSTANTS (modifiable)
 // ==============================================
 const ERROR_MESSAGES = {
-  NO_TEXT_DETECTED: "[No text detected]",
-  OCR_ERROR: "OCR Error: The website may be blocking image scanning workers. Try sending the text by right-clicking instead.",
-  UNEXPECTED_OCR_ERROR: "Error: Unexpected error occurred during OCR processing. Please try again.",
-  FETCH_ERROR: "Error: Unable to contact AI server. Please check your network connection.",
-  GLOBAL_ERROR_PREFIX: "Global Error: ",
-  UNHANDLED_REJECTION_PREFIX: "Unhandled Rejection: "
+  NO_TEXT_DETECTED: "No text was detected in the selected area.",
+  OCR_ERROR: "OCR error: Unable to extract text from the image. This may be due to website restrictions. Please try copying the text manually.",
+  UNEXPECTED_OCR_ERROR: "An unexpected error occurred during image processing. This website is likely blocking the image extraction worker. Please try again or copy the text manually.",
+  FETCH_ERROR: "Network error: Unable to contact our AI service. Please check your connection and try again.",
+  GLOBAL_ERROR: "An unexpected error occurred in our extension. Please try again.",
+  UNHANDLED_REJECTION: "An unexpected error occurred. Please try again."
 };
 
 // ==============================================
@@ -196,7 +196,6 @@ function removeExistingPrompt() {
   }
 }
 
-
 /**
  * Launches the snipping tool overlay.
  * After the user snips an area, the image is pre-processed and then
@@ -226,7 +225,7 @@ function launchSnippingTool() {
         // Preprocess the image before OCR to improve recognition accuracy
         preprocessImage(croppedImageData)
           .then((processedImageData) => {
-            return Tesseract.recognize(processedImageData, 'eng', { logger: m => console.log(m) });
+            return Tesseract.recognize(processedImageData, 'eng');
           })
           .then(({ data: { text } }) => {
             const extractedText = text.trim();
@@ -234,7 +233,7 @@ function launchSnippingTool() {
               // If OCR yields no text, notify the user and do not call API
               renderOrAppendQuery(ERROR_MESSAGES.NO_TEXT_DETECTED);
               if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No text detected in the snip.');
+                window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: No text detected in the snip.");
               }
               return;
             }
@@ -243,7 +242,7 @@ function launchSnippingTool() {
             // Validate the extracted text before calling the API
             if (typeof extractedText !== 'string' || extractedText.length < 2) {
               if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Extracted text is invalid.');
+                window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: Extracted text is invalid.");
               }
               return;
             }
@@ -267,29 +266,32 @@ function launchSnippingTool() {
                   chrome.runtime.sendMessage({ type: 'openChat', message: data.response });
                 } else {
                   if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                    window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No response from AI');
+                    window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: No response from AI");
                   }
                 }
               })
-              .catch(error => {
-                console.error('Error sending text to AI:', error);
+              .catch(() => {
                 // For fetch errors, show a generic network error message
                 updateAIResponse(null, ERROR_MESSAGES.FETCH_ERROR);
               });
           })
           .catch(err => {
-            console.error('Error during OCR processing:', err);
-            // Distinguish OCR-related errors from unexpected ones
-            if (err && err.message && (err.message.toLowerCase().includes("ocr") || err.message.toLowerCase().includes("preprocessing"))) {
-              renderOrAppendQuery(ERROR_MESSAGES.OCR_ERROR);
-              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: OCR processing failed.');
+            let friendlyMessage;
+            if (err && err.message) {
+              const errMsgLower = err.message.toLowerCase();
+              if (errMsgLower.includes("refused to create a worker")) {
+                friendlyMessage = "OCR error: The website's security settings prevent image scanning. Please try copying the text manually.";
+              } else if (errMsgLower.includes("ocr") || errMsgLower.includes("preprocessing")) {
+                friendlyMessage = ERROR_MESSAGES.OCR_ERROR;
+              } else {
+                friendlyMessage = ERROR_MESSAGES.UNEXPECTED_OCR_ERROR;
               }
             } else {
-              renderOrAppendQuery(ERROR_MESSAGES.UNEXPECTED_OCR_ERROR);
-              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Unexpected error occurred.');
-              }
+              friendlyMessage = ERROR_MESSAGES.UNEXPECTED_OCR_ERROR;
+            }
+            renderOrAppendQuery(friendlyMessage);
+            if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+              window.aiResponseAlertRef.current.updateLastAssistantResponse(friendlyMessage);
             }
           });
       }}
@@ -324,7 +326,7 @@ function launchSnippingToolWithPrompt() {
         // Preprocess the image before OCR to improve recognition accuracy
         preprocessImage(croppedImageData)
           .then((processedImageData) => {
-            return Tesseract.recognize(processedImageData, 'eng', { logger: m => console.log(m) });
+            return Tesseract.recognize(processedImageData, 'eng');
           })
           .then(({ data: { text } }) => {
             const extractedText = text.trim();
@@ -332,7 +334,7 @@ function launchSnippingToolWithPrompt() {
               // If OCR yields no text, notify the user and do not call API
               renderOrAppendQuery(ERROR_MESSAGES.NO_TEXT_DETECTED);
               if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No text detected in the snip.');
+                window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: No text detected in the snip.");
               }
               return;
             }
@@ -344,7 +346,7 @@ function launchSnippingToolWithPrompt() {
               // Validate combined query before sending to the AI
               if (typeof combinedQuery !== 'string' || combinedQuery.trim().length < 2) {
                 if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                  window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Combined query is invalid.');
+                  window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: Combined query is invalid.");
                 }
                 return;
               }
@@ -368,29 +370,32 @@ function launchSnippingToolWithPrompt() {
                     chrome.runtime.sendMessage({ type: 'openChat', message: data.response });
                   } else {
                     if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                      window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: No response from AI');
+                      window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: No response from AI");
                     }
                   }
                 })
-                .catch(error => {
-                  console.error('Error sending text to AI:', error);
-                  // For fetch errors, show a generic network error message
+                .catch(() => {
                   updateAIResponse(null, ERROR_MESSAGES.FETCH_ERROR);
                 });
             });
           })
           .catch(err => {
-            console.error('Error during OCR processing:', err);
-            if (err && err.message && (err.message.toLowerCase().includes("ocr") || err.message.toLowerCase().includes("preprocessing"))) {
-              renderOrAppendQuery(ERROR_MESSAGES.OCR_ERROR);
-              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: OCR processing failed.');
+            let friendlyMessage;
+            if (err && err.message) {
+              const errMsgLower = err.message.toLowerCase();
+              if (errMsgLower.includes("refused to create a worker")) {
+                friendlyMessage = "OCR error: The website's security settings prevent image scanning. Please try copying the text manually.";
+              } else if (errMsgLower.includes("ocr") || errMsgLower.includes("preprocessing")) {
+                friendlyMessage = ERROR_MESSAGES.OCR_ERROR;
+              } else {
+                friendlyMessage = ERROR_MESSAGES.UNEXPECTED_OCR_ERROR;
               }
             } else {
-              renderOrAppendQuery(ERROR_MESSAGES.UNEXPECTED_OCR_ERROR);
-              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                window.aiResponseAlertRef.current.updateLastAssistantResponse('Error: Unexpected error occurred.');
-              }
+              friendlyMessage = ERROR_MESSAGES.UNEXPECTED_OCR_ERROR;
+            }
+            renderOrAppendQuery(friendlyMessage);
+            if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+              window.aiResponseAlertRef.current.updateLastAssistantResponse(friendlyMessage);
             }
           });
       }}
@@ -517,11 +522,7 @@ function clearBadge() {
  * @param {string} message - The message to log.
  */
 function injectConsoleLog(tabId, message) {
-  chrome.scripting.executeScript({
-    target: { tabId: tabId },
-    func: (msg) => console.log(msg),
-    args: [message]
-  });
+  // In production, this function is disabled.
 }
 
 /**
@@ -593,19 +594,21 @@ export {
 
 // Global error handling for any uncaught errors or unhandled rejections
 window.addEventListener('error', (e) => {
-  console.error('Global error caught:', e.message);
-  renderOrAppendQuery(`${ERROR_MESSAGES.GLOBAL_ERROR_PREFIX}${e.message}`);
-  if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-    window.aiResponseAlertRef.current.updateLastAssistantResponse(`${ERROR_MESSAGES.GLOBAL_ERROR_PREFIX}${e.message}`);
+  // Only handle errors from our extension's scripts
+  if (e.filename && (e.filename.includes('content.js') || e.filename.includes('background.js'))) {
+    const friendlyMessage = ERROR_MESSAGES.GLOBAL_ERROR;
+    renderOrAppendQuery(friendlyMessage);
+    if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
+      window.aiResponseAlertRef.current.updateLastAssistantResponse(friendlyMessage);
+    }
   }
 });
 
 window.addEventListener('unhandledrejection', (e) => {
-  console.error('Unhandled rejection:', e.reason);
-  const errorMsg = e.reason && e.reason.message ? e.reason.message : 'Unhandled rejection error';
-  renderOrAppendQuery(`${ERROR_MESSAGES.UNHANDLED_REJECTION_PREFIX}${errorMsg}`);
+  const friendlyMessage = ERROR_MESSAGES.UNHANDLED_REJECTION;
+  renderOrAppendQuery(friendlyMessage);
   if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-    window.aiResponseAlertRef.current.updateLastAssistantResponse(`${ERROR_MESSAGES.UNHANDLED_REJECTION_PREFIX}${errorMsg}`);
+    window.aiResponseAlertRef.current.updateLastAssistantResponse(friendlyMessage);
   }
 });
 
