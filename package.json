@@ -1,7 +1,29 @@
 {
   "name": "clickai",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "A powerful browser extension that provides instant AI assistance directly in your browser. Highlight text, capture screen areas with OCR, or use voice input to get AI-powered answers without leaving your current tab.",
+  "author": "Saketh Sripada",
+  "license": "MIT",
+  "homepage": "https://github.com/sakethsripada/clickai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sakethsripada/clickai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sakethsripada/clickai/issues"
+  },
+  "keywords": [
+    "browser-extension",
+    "ai",
+    "chatgpt",
+    "openai",
+    "ocr",
+    "voice-input",
+    "productivity",
+    "chrome-extension",
+    "react"
+  ],
+  "private": false,
   "dependencies": {
     "@chakra-ui/react": "^3.6.0",
     "@emotion/react": "^11.14.0",
@@ -37,14 +59,25 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build && webpack --config webpack.config.js --mode production",
+    "build:dev": "react-scripts build && webpack --config webpack.config.js --mode development",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "test:coverage": "react-scripts test --coverage --watchAll=false",
+    "eject": "react-scripts eject",
+    "dev": "webpack --config webpack.config.js --mode development --watch",
+    "pack": "node zipDist.js",
+    "lint": "eslint src/ public/ --ext .js,.jsx",
+    "lint:fix": "eslint src/ public/ --ext .js,.jsx --fix"
   },
   "eslintConfig": {
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "no-unused-vars": "warn",
+      "no-console": "off",
+      "react/prop-types": "off"
+    }
   },
   "browserslist": {
     "production": [
@@ -59,8 +92,16 @@
     ]
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.22.0",
+    "@babel/preset-react": "^7.22.0",
+    "babel-loader": "^9.1.0",
     "css-loader": "^7.1.2",
     "style-loader": "^4.0.0",
+    "webpack": "^5.88.0",
     "webpack-cli": "^5.1.4"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   }
 }

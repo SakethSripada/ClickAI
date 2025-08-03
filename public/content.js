@@ -1,26 +1,31 @@
-/*****************************************************
- * content.js
+/**
+ * Content Script for ClickAI Browser Extension
  * 
- * This file injects the AI chat UI into the webpage,
- * handles floating button creation, message passing,
- * and now also processes snipped images using Tesseract OCR.
+ * This script is injected into every webpage and provides the core functionality
+ * for the ClickAI extension. It handles the floating button creation, AI chat
+ * interface injection, screen capture with OCR processing, and communication
+ * between the webpage and the extension background script.
  * 
- * PRODUCTION READY: Added robust error handling, input 
- * validation, and OCR image pre-processing to optimize 
- * recognition accuracy and eliminate unnecessary API calls.
- *****************************************************/
+ * Key Features:
+ * - Creates and manages the floating AI button
+ * - Injects the React-based chat interface
+ * - Handles screen capture and OCR processing
+ * - Processes highlighted text queries
+ * - Manages error handling and user feedback
+ * 
+ * @author ClickAI Team
+ * @version 1.0.0
+ */
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import AIResponseAlert from '../src/Components/AIResponseAlert';
 import PromptBox from '../src/Components/PromptBox';
 import SnippingTool from '../src/Components/SnippingTool';
-import Tesseract from 'tesseract.js'; // Import Tesseract OCR
+import Tesseract from 'tesseract.js';
 import { AiOutlineMessage } from 'react-icons/ai'; 
 
-// ==============================================
-// ERROR RESPONSE CONSTANTS (modifiable)
-// ==============================================
+// Error message constants - easily configurable for different languages or customization
 const ERROR_MESSAGES = {
   NO_TEXT_DETECTED: "No text was detected in the selected area.",
   OCR_ERROR: "OCR error: Unable to extract text from the image. This may be due to website restrictions. Please try copying the text manually.",
@@ -30,39 +35,63 @@ const ERROR_MESSAGES = {
   UNHANDLED_REJECTION: "An unexpected error occurred. Please try again."
 };
 
-// ==============================================
-// Global references to the alert container and its React ref
-// ==============================================
+// Global references for managing the AI chat interface
 let aiResponseAlertRoot = null;
 window.aiResponseAlertRef = null;
 
 /**
- * Preprocesses the image data to optimize OCR performance.
- * This function loads the image from the data URL, applies a grayscale
- * and contrast filter, and returns a new data URL.
- *
- * @param {string} dataUrl - The base64 image data URL.
- * @returns {Promise<string>} A promise that resolves to the processed data URL.
+ * Preprocesses an image to optimize OCR accuracy by applying grayscale
+ * and contrast enhancement filters. This significantly improves text
+ * recognition especially for screenshots with poor contrast.
+ * 
+ * @param {string} dataUrl - Base64 encoded image data URL
+ * @returns {Promise<string>} Promise resolving to processed image data URL
  */
 function preprocessImage(dataUrl) {
   return new Promise((resolve, reject) => {
     try {
       const img = new Image();
-      img.crossOrigin = "Anonymous";
+      
       img.onload = () => {
+        // Create canvas for image processing
         const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        // Apply filters to enhance OCR accuracy
-        ctx.filter = 'grayscale(100%) contrast(120%)';
+        
+        // Draw original image
         ctx.drawImage(img, 0, 0);
-        const processedDataUrl = canvas.toDataURL();
-        resolve(processedDataUrl);
+        
+        // Get image data for pixel manipulation
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        
+        // Apply grayscale and contrast enhancement
+        for (let i = 0; i < data.length; i += 4) {
+          // Convert to grayscale using luminance formula
+          const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+          
+          // Apply contrast enhancement (simple threshold)
+          const enhanced = gray > 128 ? Math.min(255, gray * 1.2) : Math.max(0, gray * 0.8);
+          
+          data[i] = enhanced;     // Red
+          data[i + 1] = enhanced; // Green
+          data[i + 2] = enhanced; // Blue
+          // Alpha channel (data[i + 3]) remains unchanged
+        }
+        
+        // Put processed data back on canvas
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Convert to data URL and resolve
+        resolve(canvas.toDataURL('image/png'));
       };
+      
       img.onerror = () => {
-        reject(new Error("Image preprocessing failed: Unable to load image."));
+        reject(new Error('Failed to load image for preprocessing'));
       };
+      
       img.src = dataUrl;
     } catch (error) {
       reject(error);
@@ -71,546 +100,404 @@ function preprocessImage(dataUrl) {
 }
 
 /**
- * If an AIResponseAlert is already open, append the new user query;
- * otherwise, render a new AIResponseAlert with the initial query.
- *
- * @param {string} newQuery - The user query to append or use as initial input.
+ * Performs OCR (Optical Character Recognition) on an image using Tesseract.js
+ * with preprocessing for better accuracy. Handles various error conditions
+ * and provides user-friendly feedback.
+ * 
+ * @param {string} imageDataUrl - Base64 encoded image data URL
+ * @returns {Promise<string>} Promise resolving to extracted text
  */
-function renderOrAppendQuery(newQuery) {
-  const existingAlert = document.querySelector('#react-root');
-  if (existingAlert && window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-    // Append new user query to existing AIResponseAlert
-    window.aiResponseAlertRef.current.appendUserQuery(newQuery);
-  } else {
-    // Create a new AIResponseAlert with initialQuery
-    createAIResponseAlert(newQuery);
-  }
-}
-
-/**
- * Creates and opens AIResponseAlert.
- *
- * @param {string} [initialQuery=""] - The initial query to display.
- */
-function createAIResponseAlert(initialQuery = "") {
-  const alertBox = document.createElement('div');
-  alertBox.id = 'react-root';
-  document.body.appendChild(alertBox);
-  window.aiResponseAlertRef = React.createRef();
-  aiResponseAlertRoot = createRoot(alertBox);
-  aiResponseAlertRoot.render(<AIResponseAlert ref={window.aiResponseAlertRef} initialQuery={initialQuery} />);
-  // Hide the floating button since the chat window is open
-  const floatBtn = document.getElementById('ai-float-btn');
-  if (floatBtn) {
-    floatBtn.style.display = 'none';
-  }
-}
-
-/**
- * Injects a floating button on all web pages for opening/closing AIResponseAlert.
- */
-function injectFloatingButton() {
-  if (document.getElementById('ai-float-btn')) return; // Prevent duplicates
-
-  const btn = document.createElement('button');
-  btn.id = 'ai-float-btn';
-  const btnRoot = createRoot(btn);
-  btnRoot.render(<AiOutlineMessage size={28} color="white" />);
-
-  btn.onclick = () => {
-    const existingAlert = document.querySelector('#react-root');
-    if (existingAlert) {
-      // If the chat window is already open, close it
-      removeExistingAlert();
-    } else {
-      // Otherwise, open the chat window
-      createAIResponseAlert();
-      // Hide the floating button while chat window is open
-      btn.style.display = 'none';
+async function performOCR(imageDataUrl) {
+  try {
+    console.log('Starting OCR processing...');
+    
+    // Preprocess image for better OCR accuracy
+    const processedImageUrl = await preprocessImage(imageDataUrl);
+    console.log('Image preprocessing completed');
+    
+    // Configure Tesseract worker with optimized settings
+    const { data: { text } } = await Tesseract.recognize(
+      processedImageUrl,
+      'eng', // English language
+      {
+        logger: m => {
+          // Log progress for debugging (can be removed in production)
+          if (m.status === 'recognizing text') {
+            console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
+          }
+        },
+        // Tesseract configuration for better text recognition
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?;:()-[]{}"\'/\\@#$%^&*+=<>|`~',
+        tessedit_pageseg_mode: '6', // Uniform block of text
+      }
+    );
+    
+    const cleanText = text.trim();
+    console.log('OCR completed, extracted text length:', cleanText.length);
+    
+    if (!cleanText) {
+      throw new Error(ERROR_MESSAGES.NO_TEXT_DETECTED);
     }
-  };
+    
+    return cleanText;
+    
+  } catch (error) {
+    console.error('OCR processing failed:', error);
+    
+    // Provide specific error messages based on the failure type
+    if (error.message === ERROR_MESSAGES.NO_TEXT_DETECTED) {
+      throw error;
+    } else if (error.name === 'SecurityError' || error.message.includes('worker')) {
+      throw new Error(ERROR_MESSAGES.OCR_ERROR);
+    } else {
+      throw new Error(ERROR_MESSAGES.UNEXPECTED_OCR_ERROR);
+    }
+  }
+}
 
-  document.body.appendChild(btn);
+/**
+ * Creates and displays the floating AI button on the webpage.
+ * The button provides quick access to the AI chat interface and is
+ * positioned to avoid interfering with page content.
+ */
+function createFloatingButton() {
+  // Check if button already exists to avoid duplicates
+  if (document.getElementById('ai-float-btn')) {
+    return;
+  }
 
-  const style = document.createElement('style');
-  style.innerHTML = `
-    #ai-float-btn {
+  const floatBtn = document.createElement('div');
+  floatBtn.id = 'ai-float-btn';
+  floatBtn.innerHTML = `
+    <div style="
       position: fixed;
       bottom: 20px;
       right: 20px;
-      width: 55px;
-      height: 55px;
-      background: linear-gradient(135deg, #007BFF, #0056b3);
-      color: white;
-      border: none;
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       border-radius: 50%;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
       cursor: pointer;
-      box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
-      transition: all 0.3s ease-in-out;
-      z-index: 999999;
-    }
-    
-    #ai-float-btn:hover {
-      background: linear-gradient(135deg, #FF7B00, #FF4500);
-      transform: scale(1.1);
-    }
-
-    #ai-float-btn:active {
-      transform: scale(0.95);
-    }
-
-    #ai-float-btn svg {
-      width: 30px;
-      height: 30px;
-      margin: 0; /* Ensure no extra margins cause misalignment */
-    }
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      z-index: 1000;
+      transition: all 0.3s ease;
+      color: white;
+      font-size: 24px;
+      user-select: none;
+    " title="Open ClickAI Chat">
+      💬
+    </div>
   `;
-  document.head.appendChild(style);
-}
 
-/* 
- * Instead of calling injectFloatingButton() immediately, wait until 
- * the entire page (including any React elements) has loaded to prevent 
- * hydration conflicts on pages that use React.
- */
-if (document.readyState === 'complete') {
-  injectFloatingButton();
-} else {
-  window.addEventListener('load', injectFloatingButton);
-}
-
-
-function removeExistingPrompt() {
-  const existingPrompt = document.querySelector('#prompt-root');
-  if (existingPrompt) {
-    try {
-      const root = createRoot(existingPrompt);
-      root.unmount();
-    } catch (e) {
-      // Ignore errors during unmount
-    }
-    document.body.removeChild(existingPrompt);
-  }
-}
-
-/**
- * Launches the snipping tool overlay.
- * After the user snips an area, the image is pre-processed and then
- * processed via OCR to extract text. The extracted text is validated
- * and then sent as a normal user query to the AI backend.
- */
-function launchSnippingTool() {
-  // Check if a snipping container already exists and remove it.
-  const existingContainer = document.getElementById('snip-container');
-  if (existingContainer) {
-    existingContainer.remove();
-  }
+  // Add hover effects
+  const btnElement = floatBtn.firstElementChild;
+  btnElement.addEventListener('mouseenter', () => {
+    btnElement.style.transform = 'scale(1.1)';
+    btnElement.style.boxShadow = '0 6px 25px rgba(0,0,0,0.4)';
+  });
   
-  // Create container for SnippingTool
-  const snipContainer = document.createElement('div');
-  snipContainer.id = 'snip-container';
-  document.body.appendChild(snipContainer);
-  const snipRoot = createRoot(snipContainer);
-  
-  snipRoot.render(
-    <SnippingTool
-      onComplete={(croppedImageData) => {
-        // Remove snipping tool overlay immediately
-        snipRoot.unmount();
-        document.body.removeChild(snipContainer);
+  btnElement.addEventListener('mouseleave', () => {
+    btnElement.style.transform = 'scale(1)';
+    btnElement.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+  });
 
-        // Preprocess the image before OCR to improve recognition accuracy
-        preprocessImage(croppedImageData)
-          .then((processedImageData) => {
-            return Tesseract.recognize(processedImageData, 'eng');
-          })
-          .then(({ data: { text } }) => {
-            const extractedText = text.trim();
-            if (!extractedText) {
-              // If OCR yields no text, notify the user and do not call API
-              renderOrAppendQuery(ERROR_MESSAGES.NO_TEXT_DETECTED);
-              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: No text detected in the snip.");
-              }
-              return;
-            }
-            // Append the extracted text as a new user query
-            renderOrAppendQuery(extractedText);
-            // Validate the extracted text before calling the API
-            if (typeof extractedText !== 'string' || extractedText.length < 2) {
-              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: Extracted text is invalid.");
-              }
-              return;
-            }
-            // Send the extracted text to AI as a normal text query
-            fetch(`https://${process.env.BASE_URL}/generate`, {
-              method: 'POST',
-              headers: { 
-                'Content-Type': 'application/json',
-                'x-extension-secret': process.env.EXTENSION_SECRET
-              },
-              body: JSON.stringify({
-                conversationHistory: [{ sender: 'user', text: extractedText }]
-              })
-            })
-              .then(response => response.json())
-              .then(data => {
-                if (data && data.response) {
-                  if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                    window.aiResponseAlertRef.current.updateLastAssistantResponse(data.response);
-                  }
-                  chrome.runtime.sendMessage({ type: 'openChat', message: data.response });
-                } else {
-                  if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                    window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: No response from AI");
-                  }
-                }
-              })
-              .catch(() => {
-                // For fetch errors, show a generic network error message
-                updateAIResponse(null, ERROR_MESSAGES.FETCH_ERROR);
-              });
-          })
-          .catch(err => {
-            let friendlyMessage;
-            if (err && err.message) {
-              const errMsgLower = err.message.toLowerCase();
-              if (errMsgLower.includes("refused to create a worker")) {
-                friendlyMessage = "OCR error: The website's security settings prevent image scanning. Please try copying the text manually.";
-              } else if (errMsgLower.includes("ocr") || errMsgLower.includes("preprocessing")) {
-                friendlyMessage = ERROR_MESSAGES.OCR_ERROR;
-              } else {
-                friendlyMessage = ERROR_MESSAGES.UNEXPECTED_OCR_ERROR;
-              }
-            } else {
-              friendlyMessage = ERROR_MESSAGES.UNEXPECTED_OCR_ERROR;
-            }
-            renderOrAppendQuery(friendlyMessage);
-            if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-              window.aiResponseAlertRef.current.updateLastAssistantResponse(friendlyMessage);
-            }
-          });
-      }}
-      onCancel={() => {
-        snipRoot.unmount();
-        document.body.removeChild(snipContainer);
-      }}
-    />
-  );
+  // Handle button click to open AI chat
+  floatBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    launchAIResponseAlert('');
+    floatBtn.style.display = 'none';
+  });
+
+  document.body.appendChild(floatBtn);
 }
 
 /**
- * NEW FUNCTION:
- * Launches the snipping tool overlay with an additional prompt.
- * After the user snips an area, the image is pre-processed and then
- * processed via OCR to extract text. Then the user is asked for an additional prompt.
- * Both the extracted text and additional prompt are combined and sent to the AI backend.
+ * Launches the AI chat interface with an optional initial query.
+ * Manages the React component lifecycle and ensures proper cleanup.
+ * 
+ * @param {string} query - Initial message to send to the AI
+ * @param {string} sender - Source of the query ('contextMenu', 'floatingButton', etc.)
  */
-function launchSnippingToolWithPrompt() {
-  // Create container for SnippingTool
-  const snipContainer = document.createElement('div');
-  snipContainer.id = 'snip-container';
-  document.body.appendChild(snipContainer);
-  const snipRoot = createRoot(snipContainer);
-  snipRoot.render(
-    <SnippingTool
-      onComplete={(croppedImageData) => {
-        // Remove snipping tool overlay immediately
-        snipRoot.unmount();
-        document.body.removeChild(snipContainer);
-
-        // Preprocess the image before OCR to improve recognition accuracy
-        preprocessImage(croppedImageData)
-          .then((processedImageData) => {
-            return Tesseract.recognize(processedImageData, 'eng');
-          })
-          .then(({ data: { text } }) => {
-            const extractedText = text.trim();
-            if (!extractedText) {
-              // If OCR yields no text, notify the user and do not call API
-              renderOrAppendQuery(ERROR_MESSAGES.NO_TEXT_DETECTED);
-              if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: No text detected in the snip.");
-              }
-              return;
-            }
-            // Ask for an additional prompt using the PromptBox
-            renderPromptBox(extractedText, (response) => {
-              const additionalPrompt = response.additionalText;
-              const combinedQuery = extractedText + "\n" + additionalPrompt;
-              renderOrAppendQuery(combinedQuery);
-              // Validate combined query before sending to the AI
-              if (typeof combinedQuery !== 'string' || combinedQuery.trim().length < 2) {
-                if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                  window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: Combined query is invalid.");
-                }
-                return;
-              }
-              // Send the combined query to AI as a normal text query
-              fetch(`https://${process.env.BASE_URL}/generate`, {
-                method: 'POST',
-                headers: { 
-                  'Content-Type': 'application/json',
-                  'x-extension-secret': process.env.EXTENSION_SECRET
-                },
-                body: JSON.stringify({
-                  conversationHistory: [{ sender: 'user', text: combinedQuery }]
-                })
-              })
-                .then(response => response.json())
-                .then(data => {
-                  if (data && data.response) {
-                    if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                      window.aiResponseAlertRef.current.updateLastAssistantResponse(data.response);
-                    }
-                    chrome.runtime.sendMessage({ type: 'openChat', message: data.response });
-                  } else {
-                    if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-                      window.aiResponseAlertRef.current.updateLastAssistantResponse("Error: No response from AI");
-                    }
-                  }
-                })
-                .catch(() => {
-                  updateAIResponse(null, ERROR_MESSAGES.FETCH_ERROR);
-                });
-            });
-          })
-          .catch(err => {
-            let friendlyMessage;
-            if (err && err.message) {
-              const errMsgLower = err.message.toLowerCase();
-              if (errMsgLower.includes("refused to create a worker")) {
-                friendlyMessage = "OCR error: The website's security settings prevent image scanning. Please try copying the text manually.";
-              } else if (errMsgLower.includes("ocr") || errMsgLower.includes("preprocessing")) {
-                friendlyMessage = ERROR_MESSAGES.OCR_ERROR;
-              } else {
-                friendlyMessage = ERROR_MESSAGES.UNEXPECTED_OCR_ERROR;
-              }
-            } else {
-              friendlyMessage = ERROR_MESSAGES.UNEXPECTED_OCR_ERROR;
-            }
-            renderOrAppendQuery(friendlyMessage);
-            if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-              window.aiResponseAlertRef.current.updateLastAssistantResponse(friendlyMessage);
-            }
-          });
-      }}
-      onCancel={() => {
-        snipRoot.unmount();
-        document.body.removeChild(snipContainer);
-      }}
-    />
-  );
-}
-
-/**
- * Converts a base64 data URL to a Blob.
- *
- * @param {string} dataurl - The base64 data URL.
- * @returns {Blob} The resulting Blob.
- */
-function dataURLtoBlob(dataurl) {
-  const arr = dataurl.split(',');
-  const mimeMatch = arr[0].match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : '';
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new Blob([u8arr], { type: mime });
-}
-
-/*
- * The sendImageToAI function is no longer used because we now process the image using OCR.
- * It is kept here commented out for reference.
- *
- // function sendImageToAI(imageData, callback) {
- //   const blob = dataURLtoBlob(imageData);
- //   const formData = new FormData();
- //   formData.append('file', blob, 'image.png');
- //   // Optionally, add conversationHistory as JSON string if needed.
- //   formData.append('conversationHistory', JSON.stringify([{ sender: 'user', text: '[Image Input]' }]));
- //
- //   fetch('http://localhost:5010/generate', {
- //     method: 'POST',
- //     body: formData,
- //   })
- //     .then(response => response.json())
- //     .then(data => {
- //       if (data && data.response) {
- //         callback(data.response);
- //       } else {
- //         callback('Error: No response from AI');
- //       }
- //     })
- //     .catch(error => {
- //       console.error('Error sending image to AI:', error);
- //       callback('Error: Unable to contact AI server');
- //     });
- // }
-*/
-
-/**
- * Removes any existing AI alert from the DOM and shows the floating button.
- */
-function removeExistingAlert() {
+function launchAIResponseAlert(query, sender = 'direct') {
+  // Remove existing instance if present
   const existingAlert = document.querySelector('#react-root');
   if (existingAlert) {
-    try {
-      const root = createRoot(existingAlert);
-      root.unmount();
-    } catch (e) {
-      // Ignore errors during unmount
+    if (aiResponseAlertRoot) {
+      aiResponseAlertRoot.unmount();
     }
     document.body.removeChild(existingAlert);
   }
-  // Show floating button again
-  const floatBtn = document.getElementById('ai-float-btn');
-  if (floatBtn) {
-    floatBtn.style.display = 'block';
-  }
+
+  // Create new container for the React component
+  const alertContainer = document.createElement('div');
+  alertContainer.id = 'react-root';
+  alertContainer.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1500;
+    pointer-events: none;
+  `;
+
+  document.body.appendChild(alertContainer);
+
+  // Create React root and render the AI chat component
+  aiResponseAlertRoot = createRoot(alertContainer);
+  aiResponseAlertRoot.render(
+    React.createElement(AIResponseAlert, {
+      ref: (ref) => {
+        window.aiResponseAlertRef = ref;
+      },
+      initialQuery: query,
+      isPopup: false
+    })
+  );
+
+  console.log(`AI chat launched with query: "${query}" from ${sender}`);
 }
 
 /**
- * Renders the prompt box for additional text when required.
- *
- * @param {string} selectedText - The text that was selected.
- * @param {function} sendResponse - The callback to send the response.
+ * Launches the screen snipping tool for capturing areas of the screen.
+ * Provides OCR processing of the captured area and sends the extracted
+ * text to the AI for analysis.
+ * 
+ * @param {boolean} includePrompt - Whether to show additional prompt input
  */
-function renderPromptBox(selectedText, sendResponse) {
-  removeExistingPrompt(); // remove any existing prompt container
-  const promptBox = document.createElement('div');
-  promptBox.id = 'prompt-root';
-  document.body.appendChild(promptBox);
-  const root = createRoot(promptBox);
-  root.render(
-    <PromptBox
-      selectedText={selectedText}
-      onSubmit={(additionalText) => {
-        sendResponse({ additionalText });
-        removeExistingPrompt(); // remove prompt after submission
-      }}
-    />
+function launchSnippingTool(includePrompt = false) {
+  console.log('Launching snipping tool...');
+  
+  // Remove any existing snipping tool instances
+  const existingSnippingTool = document.querySelector('#snipping-root');
+  if (existingSnippingTool) {
+    existingSnippingTool.remove();
+  }
+
+  // Create container for the snipping tool
+  const snippingContainer = document.createElement('div');
+  snippingContainer.id = 'snipping-root';
+  snippingContainer.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2000;
+    pointer-events: auto;
+  `;
+
+  document.body.appendChild(snippingContainer);
+
+  // Create React root for snipping tool
+  const snippingRoot = createRoot(snippingContainer);
+  
+  /**
+   * Handles completion of screen capture with OCR processing
+   * @param {string} croppedImageData - Base64 encoded cropped image
+   */
+  const handleSnippingComplete = async (croppedImageData) => {
+    console.log('Snipping completed, starting OCR...');
+    
+    // Cleanup snipping tool UI
+    snippingRoot.unmount();
+    document.body.removeChild(snippingContainer);
+    
+    try {
+      // Perform OCR on the captured image
+      const extractedText = await performOCR(croppedImageData);
+      console.log('OCR successful, extracted text:', extractedText.substring(0, 100) + '...');
+      
+      if (includePrompt) {
+        // Show prompt box for additional context
+        showPromptBox(extractedText);
+      } else {
+        // Directly send extracted text to AI
+        launchAIResponseAlert(extractedText, 'snipping');
+      }
+      
+    } catch (error) {
+      console.error('OCR failed:', error);
+      // Show error message to user
+      launchAIResponseAlert(error.message, 'snipping-error');
+    }
+  };
+
+  /**
+   * Handles cancellation of screen capture
+   */
+  const handleSnippingCancel = () => {
+    console.log('Snipping cancelled by user');
+    snippingRoot.unmount();
+    document.body.removeChild(snippingContainer);
+  };
+
+  // Render the snipping tool component
+  snippingRoot.render(
+    React.createElement(SnippingTool, {
+      onComplete: handleSnippingComplete,
+      onCancel: handleSnippingCancel
+    })
   );
 }
 
 /**
- * Highlights the extension icon by setting a badge.
+ * Displays a prompt box allowing users to add additional context
+ * to selected text or OCR results before sending to AI.
+ * 
+ * @param {string} selectedText - Pre-filled text from selection or OCR
  */
-function highlightExtensionIcon() {
-  chrome.action.setBadgeText({ text: 'NEW' });
-  chrome.action.setBadgeBackgroundColor({ color: '#00FF00' });
+function showPromptBox(selectedText) {
+  console.log('Showing prompt box for text:', selectedText.substring(0, 50) + '...');
+  
+  // Remove any existing prompt box
+  const existingPrompt = document.querySelector('#prompt-root');
+  if (existingPrompt) {
+    existingPrompt.remove();
+  }
+
+  // Create container for prompt box
+  const promptContainer = document.createElement('div');
+  promptContainer.id = 'prompt-root';
+  promptContainer.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1600;
+    pointer-events: auto;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+
+  document.body.appendChild(promptContainer);
+
+  // Create React root for prompt box
+  const promptRoot = createRoot(promptContainer);
+  
+  /**
+   * Handles submission of the prompt with additional context
+   * @param {string} additionalText - Additional context from user
+   */
+  const handlePromptSubmit = (additionalText) => {
+    // Cleanup prompt UI
+    promptRoot.unmount();
+    document.body.removeChild(promptContainer);
+    
+    // Combine selected text with additional context
+    const fullQuery = additionalText.trim() 
+      ? `${additionalText.trim()}\n\nRegarding this text: ${selectedText}`
+      : selectedText;
+    
+    // Launch AI chat with combined query
+    launchAIResponseAlert(fullQuery, 'prompt-enhanced');
+  };
+
+  // Render the prompt box component
+  promptRoot.render(
+    React.createElement(PromptBox, {
+      selectedText: selectedText,
+      onSubmit: handlePromptSubmit
+    })
+  );
 }
 
 /**
- * Clears the extension badge.
+ * Handles text selection queries from context menu interactions.
+ * Processes the selected text and determines whether to show additional
+ * prompt input or send directly to AI.
+ * 
+ * @param {string} selectedText - Text selected by the user
+ * @param {boolean} includePrompt - Whether to show additional prompt input
  */
-function clearBadge() {
-  chrome.action.setBadgeText({ text: '' });
+function handleTextSelection(selectedText, includePrompt = false) {
+  if (!selectedText || !selectedText.trim()) {
+    console.warn('No text selected for AI query');
+    return;
+  }
+
+  console.log(`Processing text selection: "${selectedText.substring(0, 50)}..."`);
+  
+  if (includePrompt) {
+    showPromptBox(selectedText);
+  } else {
+    launchAIResponseAlert(selectedText, 'contextMenu');
+  }
 }
 
-/**
- * Injects a console log into the target tab.
- *
- * @param {number} tabId - The ID of the tab.
- * @param {string} message - The message to log.
- */
-function injectConsoleLog(tabId, message) {
-  // In production, this function is disabled.
-}
-
-/**
- * Sends a new user query message to the content script.
- *
- * @param {number} tabId - The ID of the tab.
- * @param {string} query - The user query.
- */
-function sendNewUserQuery(tabId, query) {
-  chrome.tabs.sendMessage(tabId, {
-    type: 'newUserQuery',
-    query: query,
-    loading: true
-  });
-}
-
-/**
- * Sends an updated AI response message to the content script.
- *
- * @param {number} tabId - The ID of the tab.
- * @param {string} response - The AI response text.
- */
-function updateAIResponse(tabId, response) {
-  chrome.tabs.sendMessage(tabId, {
-    type: 'updateAIResponse',
-    response: response,
-    loading: false
-  });
-}
-
-// Listen for messages from the extension
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'newUserQuery') {
-    renderOrAppendQuery(request.query);
-  } else if (request.type === 'updateAIResponse') {
-    if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-      window.aiResponseAlertRef.current.updateLastAssistantResponse(request.response);
+// Message listener for communication with background script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('Content script received message:', message.type);
+  
+  try {
+    switch (message.type) {
+      case 'captureText':
+        handleTextSelection(message.selectedText, false);
+        break;
+        
+      case 'captureTextWithPrompt':
+        handleTextSelection(message.selectedText, true);
+        break;
+        
+      case 'captureArea':
+        launchSnippingTool(false);
+        break;
+        
+      case 'captureAreaAndPrompt':
+        launchSnippingTool(true);
+        break;
+        
+      default:
+        console.warn('Unknown message type:', message.type);
     }
-  } else if (request.type === 'showPrompt') {
-    renderPromptBox(request.selectedText, sendResponse);
-    // Return true to handle async sendResponse in React
-    return true;
-  } else if (request.type === 'openChat') {
-    chrome.storage.local.set({ aiMessage: request.message }, () => {
-      highlightExtensionIcon();
-    });
-  } else if (request.type === 'popupOpened') {
-    clearBadge();
-  } else if (request.type === 'captureArea') {
-    // Trigger snipping tool from context menu
-    launchSnippingTool();
-  } else if (request.type === 'captureAreaAndPrompt') {
-    // NEW: Trigger snipping tool with an additional prompt from context menu
-    launchSnippingToolWithPrompt();
+    
+    // Send success response
+    sendResponse({ success: true });
+    
+  } catch (error) {
+    console.error('Error processing message:', error);
+    sendResponse({ success: false, error: error.message });
   }
 });
 
+// Global error handlers for better user experience
+window.addEventListener('error', (event) => {
+  console.error('Global error in ClickAI content script:', event.error);
+  // Could implement user notification here if needed
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection in ClickAI:', event.reason);
+  // Could implement user notification here if needed
+});
+
+// Initialize the extension when the page is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    createFloatingButton();
+    console.log('ClickAI content script initialized');
+  });
+} else {
+  createFloatingButton();
+  console.log('ClickAI content script initialized');
+}
+
+// Make snipping tool globally accessible for other components
 window.launchSnippingTool = launchSnippingTool;
 
-export {
-  renderOrAppendQuery,
-  createAIResponseAlert,
+// Export functions for testing purposes (if needed)
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    preprocessImage,
+    performOCR,
+    handleTextSelection,
   launchSnippingTool,
-  launchSnippingToolWithPrompt, // Export the new function as well
-  sendNewUserQuery,
-  updateAIResponse,
-  injectConsoleLog
-};
-
-// Global error handling for any uncaught errors or unhandled rejections
-window.addEventListener('error', (e) => {
-  // Only handle errors from our extension's scripts
-  if (e.filename && (e.filename.includes('content.js') || e.filename.includes('background.js'))) {
-    const friendlyMessage = ERROR_MESSAGES.GLOBAL_ERROR;
-    renderOrAppendQuery(friendlyMessage);
-    if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-      window.aiResponseAlertRef.current.updateLastAssistantResponse(friendlyMessage);
-    }
-  }
-});
-
-window.addEventListener('unhandledrejection', (e) => {
-  const friendlyMessage = ERROR_MESSAGES.UNHANDLED_REJECTION;
-  renderOrAppendQuery(friendlyMessage);
-  if (window.aiResponseAlertRef && window.aiResponseAlertRef.current) {
-    window.aiResponseAlertRef.current.updateLastAssistantResponse(friendlyMessage);
-  }
-});
-
-// Inject the floating button when the script runs
-injectFloatingButton();
+    showPromptBox
+  };
+}

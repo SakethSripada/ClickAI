@@ -1,301 +1,455 @@
-/*****************************************************
- * background.js
+/**
+ * Background Script for ClickAI Browser Extension
  * 
- * This file manages background tasks for the extension,
- * such as context menu creation, handling user selections,
- * sending queries to the AI backend, and badge management.
- *****************************************************/
+ * This service worker handles extension background tasks including context menu
+ * creation, screenshot capture, message routing between content scripts and popup,
+ * and extension lifecycle management. It serves as the central communication hub
+ * for all extension operations.
+ * 
+ * Key Features:
+ * - Context menu management for text and area capture
+ * - Screenshot capture API integration
+ * - Message routing and event handling
+ * - Extension badge and notification management
+ * - Cross-tab communication coordination
+ * 
+ * @author Saketh Sripada
+ * @version 1.0.0
+ */
+
+/**
+ * Initializes the extension by creating context menu items when installed or updated.
+ * Sets up the right-click menu options for text selection and area capture.
+ */
 chrome.runtime.onInstalled.addListener(() => {
-  // Create context menu items
+  console.log('ClickAI extension installed/updated - setting up context menus');
+
+  // Context menu for selected text - direct AI query
   chrome.contextMenus.create({
     id: "captureText",
     title: "Ask ClickAI about '%s'",
-    contexts: ["selection"]
+    contexts: ["selection"],
+    documentUrlPatterns: ["<all_urls>"]
   });
 
+  // Context menu for selected text with additional prompt input
   chrome.contextMenus.create({
-    id: "addPromptAndCaptureText",
+    id: "addPromptAndCaptureText", 
     title: "Add prompt and ask ClickAI about '%s'",
-    contexts: ["selection"]
+    contexts: ["selection"],
+    documentUrlPatterns: ["<all_urls>"]
   });
 
-  // New context menu for capturing area (snipping tool)
+  // Context menu for area capture with OCR processing
   chrome.contextMenus.create({
     id: "captureArea",
     title: "Select area and send to ClickAI",
-    contexts: ["all"]
+    contexts: ["all"],
+    documentUrlPatterns: ["<all_urls>"]
   });
 
-  // NEW: Context menu for capturing area with additional prompt
+  // Context menu for area capture with additional prompt input
   chrome.contextMenus.create({
     id: "captureAreaAndPrompt",
-    title: "Select area, add prompt, and ask ClickAI",
-    contexts: ["all"]
+    title: "Select area, add prompt, and ask ClickAI", 
+    contexts: ["all"],
+    documentUrlPatterns: ["<all_urls>"]
   });
+
+  console.log('Context menus created successfully');
 });
 
-// Handle context menu clicks
+/**
+ * Handles context menu item clicks and routes them to appropriate handlers.
+ * Each menu item triggers different functionality based on user selection.
+ * 
+ * @param {chrome.contextMenus.OnClickData} info - Context menu click information
+ * @param {chrome.tabs.Tab} tab - Tab where the context menu was clicked
+ */
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "captureText") {
-    handleCaptureText(info, tab);
-  } else if (info.menuItemId === "addPromptAndCaptureText") {
-    handleAddPromptAndCaptureText(info, tab);
-  } else if (info.menuItemId === "captureArea") {
-    // Send message to content script to launch the snipping tool
-    chrome.tabs.sendMessage(tab.id, { type: 'captureArea' });
-  } else if (info.menuItemId === "captureAreaAndPrompt") {
-    // NEW: Send message to content script to launch the snipping tool with an additional prompt
-    chrome.tabs.sendMessage(tab.id, { type: 'captureAreaAndPrompt' });
-  }
-});
+  console.log(`Context menu clicked: ${info.menuItemId} on tab ${tab.id}`);
 
-/**
- * handleCaptureText
- * Processes the selected text from the webpage and sends it to the AI.
- *
- * @param {object} info - Information about the selection.
- * @param {object} tab - The current tab.
- */
-function handleCaptureText(info, tab) {
-  if (info.selectionText) {
-    const selectedText = info.selectionText;
-    sendNewUserQuery(tab.id, selectedText);
-    sendTextToAI(tab.id, selectedText, (response) => {
-      updateAIResponse(tab.id, response);
-      chrome.runtime.sendMessage({ type: 'openChat', message: response });
-    });
-  } else {
-    // No selectionText in info; try script injection to capture selection
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      function: captureHighlightedText
-    }, (results) => {
-      if (results && results[0] && results[0].result) {
-        const selectedText = results[0].result;
-        sendNewUserQuery(tab.id, selectedText);
-        sendTextToAI(tab.id, selectedText, (response) => {
-          updateAIResponse(tab.id, response);
-          chrome.runtime.sendMessage({ type: 'openChat', message: response });
-        });
-      } else {
-        displayCustomAlert(tab.id, 'Error: No text selected');
-      }
-    });
-  }
-}
-
-/**
- * handleAddPromptAndCaptureText
- * Prompts the user for additional text before sending the query.
- *
- * @param {object} info - Information about the selection.
- * @param {object} tab - The current tab.
- */
-function handleAddPromptAndCaptureText(info, tab) {
-  if (info.selectionText) {
-    const selectedText = info.selectionText;
-    promptForAdditionalText(tab.id, selectedText, (combinedText) => {
-      handleTextCaptureWithPrompt(tab.id, combinedText);
-    });
-  } else {
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      function: captureHighlightedText
-    }, (results) => {
-      if (results && results[0] && results[0].result) {
-        const selectedText = results[0].result;
-        promptForAdditionalText(tab.id, selectedText, (combinedText) => {
-          handleTextCaptureWithPrompt(tab.id, combinedText);
-        });
-      } else {
-        displayCustomAlert(tab.id, 'Error: No text selected');
-      }
-    });
-  }
-}
-
-/**
- * promptForAdditionalText
- * Prompts the user for additional text and combines it with the selected text.
- *
- * @param {number} tabId - The ID of the current tab.
- * @param {string} selectedText - The text that was selected.
- * @param {function} callback - Callback function with the combined text.
- */
-function promptForAdditionalText(tabId, selectedText, callback) {
-  chrome.tabs.sendMessage(
-    tabId,
-    { type: 'showPrompt', selectedText: selectedText },
-    (response) => {
-      if (response && response.additionalText !== undefined) {
-        const additionalText = response.additionalText;
-        const combinedText = additionalText
-          ? `${additionalText} ${selectedText}`
-          : selectedText;
-        callback(combinedText);
-      } else {
-        callback(selectedText);
-      }
+  try {
+    switch (info.menuItemId) {
+      case "captureText":
+        handleTextCapture(info, tab);
+        break;
+        
+      case "addPromptAndCaptureText":
+        handleTextCaptureWithPrompt(info, tab);
+        break;
+        
+      case "captureArea":
+        handleAreaCapture(tab);
+        break;
+        
+      case "captureAreaAndPrompt":
+        handleAreaCaptureWithPrompt(tab);
+        break;
+        
+      default:
+        console.warn(`Unknown context menu item: ${info.menuItemId}`);
     }
-  );
-}
-
-/**
- * handleTextCaptureWithPrompt
- * Processes the combined text (selected text and user prompt) and sends it to the AI.
- *
- * @param {number} tabId - The ID of the current tab.
- * @param {string} combinedText - The combined text input.
- */
-function handleTextCaptureWithPrompt(tabId, combinedText) {
-  sendNewUserQuery(tabId, combinedText);
-  sendTextToAI(tabId, combinedText, (response) => {
-    updateAIResponse(tabId, response);
-    chrome.runtime.sendMessage({ type: 'openChat', message: response });
-  });
-}
-
-/**
- * captureHighlightedText
- * (Injected function) Captures any text highlighted on the webpage.
- *
- * @returns {string|null} The highlighted text, or null if none.
- */
-function captureHighlightedText() {
-  const selectedText = window.getSelection().toString();
-  return selectedText ? selectedText : null;
-}
-
-/**
- * sendTextToAI
- * Sends a text query to the AI backend along with conversation history.
- *
- * @param {number} tabId - The ID of the current tab.
- * @param {string} text - The text query.
- * @param {function} callback - Callback function with the AI response.
- */
-function sendTextToAI(tabId, text, callback) {
-  fetch(`https://${process.env.BASE_URL}/generate`, {
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      'x-extension-secret': process.env.EXTENSION_SECRET
-    },
-    body: JSON.stringify({
-      conversationHistory: [{ sender: 'user', text }]
-    })
-  })
-    .then(response => response.json())
-    .then(data => {
-      if (data && data.response) {
-        callback(data.response);
-      } else {
-        updateAIResponse(tabId, 'Error: No response from AI');
-      }
-    })
-    .catch(() => {
-      updateAIResponse(tabId, 'Error: Unable to contact AI server');
-    });
-}
-
-/**
- * Sends a new user query message to the content script.
- *
- * @param {number} tabId - The ID of the current tab.
- * @param {string} query - The user query.
- */
-function sendNewUserQuery(tabId, query) {
-  chrome.tabs.sendMessage(tabId, {
-    type: 'newUserQuery',
-    query: query,
-    loading: true
-  });
-}
-
-/**
- * Sends an updated AI response message to the content script.
- *
- * @param {number} tabId - The ID of the current tab.
- * @param {string} response - The AI response text.
- */
-function updateAIResponse(tabId, response) {
-  chrome.tabs.sendMessage(tabId, {
-    type: 'updateAIResponse',
-    response: response,
-    loading: false
-  });
-}
-
-/**
- * displayCustomAlert
- * Displays an error alert in the content script.
- *
- * @param {number} tabId - The ID of the current tab.
- * @param {string} message - The error message.
- */
-function displayCustomAlert(tabId, message) {
-  chrome.tabs.sendMessage(tabId, {
-    type: 'customAlert',
-    message: message,
-    loading: false
-  });
-}
-
-/**
- * Injects a console log into the target tab.
- *
- * @param {number} tabId - The ID of the current tab.
- * @param {string} message - The message to log.
- */
-function injectConsoleLog(tabId, message) {
-  // In production, logging is disabled.
-}
-
-/**
- * Badge & openChat logic and screenshot capture
- */
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'openChat') {
-    chrome.storage.local.set({ aiMessage: request.message }, () => {
-      highlightExtensionIcon();
-    });
-  }
-  if (request.type === 'popupOpened') {
-    clearBadge();
-  }
-  if (request.type === 'continueChat') {
-    fetch(`https://${process.env.BASE_URL}/generate`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-extension-secret': process.env.EXTENSION_SECRET
-      },
-      body: JSON.stringify({
-        conversationHistory: request.conversationHistory,
-        continueId: request.continueId
-      })
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data && data.response) {
-          sendResponse({
-            response: data.response,
-            id: data.id || null,
-            isContinued: data.isContinued || false
-          });
-        } else {
-          sendResponse({ error: 'No response from AI' });
-        }
-      })
-      .catch(() => {
-        sendResponse({ error: 'Unable to contact AI server' });
-      });
-    return true;
-  } else if (request.type === 'captureScreenshot') {
-    // Handle screenshot capture request from content script
-    chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'png' }, (dataUrl) => {
-      sendResponse({ screenshot: dataUrl });
-    });
-    return true;
+  } catch (error) {
+    console.error('Error handling context menu click:', error);
+    showErrorNotification('Failed to process your request. Please try again.');
   }
 });
+
+/**
+ * Handles direct text capture from context menu selection.
+ * Sends the selected text directly to the content script for AI processing.
+ * 
+ * @param {chrome.contextMenus.OnClickData} info - Context menu click data
+ * @param {chrome.tabs.Tab} tab - Active tab information
+ */
+function handleTextCapture(info, tab) {
+  const selectedText = info.selectionText?.trim();
+  
+  if (!selectedText) {
+    console.warn('No text selected for capture');
+    showErrorNotification('No text was selected. Please select some text and try again.');
+    return;
+  }
+
+  console.log(`Capturing selected text: "${selectedText.substring(0, 50)}..."`);
+  
+  // Send message to content script to process the selected text
+  chrome.tabs.sendMessage(tab.id, {
+    type: 'captureText',
+    selectedText: selectedText
+  }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Failed to send message to content script:', chrome.runtime.lastError);
+      showErrorNotification('Failed to communicate with the page. Please refresh and try again.');
+    } else if (response?.success) {
+      console.log('Text capture initiated successfully');
+    }
+  });
+}
+
+/**
+ * Handles text capture with additional prompt input.
+ * Shows a prompt dialog before sending to AI for enhanced context.
+ * 
+ * @param {chrome.contextMenus.OnClickData} info - Context menu click data  
+ * @param {chrome.tabs.Tab} tab - Active tab information
+ */
+function handleTextCaptureWithPrompt(info, tab) {
+  const selectedText = info.selectionText?.trim();
+  
+  if (!selectedText) {
+    console.warn('No text selected for enhanced capture');
+    showErrorNotification('No text was selected. Please select some text and try again.');
+    return;
+  }
+
+  console.log(`Capturing text with prompt: "${selectedText.substring(0, 50)}..."`);
+  
+  // Send message to content script to show prompt box
+  chrome.tabs.sendMessage(tab.id, {
+    type: 'captureTextWithPrompt',
+    selectedText: selectedText
+  }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Failed to send enhanced capture message:', chrome.runtime.lastError);
+      showErrorNotification('Failed to communicate with the page. Please refresh and try again.');
+    } else if (response?.success) {
+      console.log('Enhanced text capture initiated successfully');
+    }
+  });
+}
+
+/**
+ * Handles area capture (screenshot + OCR) functionality.
+ * Initiates the snipping tool for screen region selection.
+ * 
+ * @param {chrome.tabs.Tab} tab - Active tab information
+ */
+function handleAreaCapture(tab) {
+  console.log(`Initiating area capture on tab ${tab.id}`);
+  
+  // Send message to content script to launch snipping tool
+  chrome.tabs.sendMessage(tab.id, {
+    type: 'captureArea'
+  }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Failed to initiate area capture:', chrome.runtime.lastError);
+      showErrorNotification('Failed to start screen capture. Please refresh and try again.');
+    } else if (response?.success) {
+      console.log('Area capture initiated successfully');
+    }
+  });
+}
+
+/**
+ * Handles area capture with additional prompt input.
+ * Combines screenshot OCR with user-provided context.
+ * 
+ * @param {chrome.tabs.Tab} tab - Active tab information
+ */
+function handleAreaCaptureWithPrompt(tab) {
+  console.log(`Initiating enhanced area capture on tab ${tab.id}`);
+  
+  // Send message to content script to launch enhanced snipping tool
+  chrome.tabs.sendMessage(tab.id, {
+    type: 'captureAreaAndPrompt'
+  }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Failed to initiate enhanced area capture:', chrome.runtime.lastError);
+      showErrorNotification('Failed to start enhanced screen capture. Please refresh and try again.');
+    } else if (response?.success) {
+      console.log('Enhanced area capture initiated successfully');
+    }
+  });
+}
+
+/**
+ * Handles runtime messages from content scripts, popup, and other extension components.
+ * Serves as the central message router for inter-component communication.
+ * 
+ * @param {Object} message - Message object with type and data
+ * @param {chrome.runtime.MessageSender} sender - Message sender information
+ * @param {Function} sendResponse - Response callback function
+ * @returns {boolean} True if response will be sent asynchronously
+ */
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log(`Background received message: ${message.type} from ${sender.tab ? 'content script' : 'popup'}`);
+
+  try {
+    switch (message.type) {
+      case 'captureScreenshot':
+        handleScreenshotCapture(sender.tab.id, sendResponse);
+        return true; // Indicates async response
+        
+      case 'showNotification':
+        showNotification(message.title, message.text, message.iconUrl);
+        sendResponse({ success: true });
+        break;
+        
+      case 'updateBadge':
+        updateExtensionBadge(message.text, message.color);
+        sendResponse({ success: true });
+        break;
+        
+      case 'getActiveTab':
+        getActiveTabInfo(sendResponse);
+        return true; // Indicates async response
+        
+      case 'openOptionsPage':
+        chrome.runtime.openOptionsPage();
+        sendResponse({ success: true });
+        break;
+        
+      default:
+        console.warn(`Unknown message type: ${message.type}`);
+        sendResponse({ success: false, error: 'Unknown message type' });
+    }
+  } catch (error) {
+    console.error('Error handling runtime message:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+});
+
+/**
+ * Captures a screenshot of the current tab for use in the snipping tool.
+ * Uses the Chrome tabs API to capture the visible area of the active tab.
+ * 
+ * @param {number} tabId - ID of the tab to capture
+ * @param {Function} sendResponse - Callback to send the screenshot data
+ */
+function handleScreenshotCapture(tabId, sendResponse) {
+  console.log(`Capturing screenshot for tab ${tabId}`);
+  
+  chrome.tabs.captureVisibleTab(null, { format: 'png' }, (screenshotUrl) => {
+    if (chrome.runtime.lastError) {
+      console.error('Screenshot capture failed:', chrome.runtime.lastError);
+      sendResponse({ 
+        success: false, 
+        error: 'Failed to capture screenshot: ' + chrome.runtime.lastError.message 
+      });
+      return;
+    }
+    
+    if (screenshotUrl) {
+      console.log('Screenshot captured successfully');
+      sendResponse({ 
+        success: true, 
+        screenshot: screenshotUrl 
+      });
+    } else {
+      console.error('Screenshot capture returned empty result');
+      sendResponse({ 
+        success: false, 
+        error: 'Screenshot capture returned no data' 
+      });
+    }
+  });
+}
+
+/**
+ * Shows a browser notification to the user.
+ * Used for error messages, status updates, and user feedback.
+ * 
+ * @param {string} title - Notification title
+ * @param {string} message - Notification message text
+ * @param {string} iconUrl - Optional notification icon URL
+ */
+function showNotification(title, message, iconUrl = 'logo192.png') {
+  const notificationOptions = {
+    type: 'basic',
+    iconUrl: iconUrl,
+    title: title,
+    message: message,
+    priority: 1
+  };
+  
+  chrome.notifications.create('', notificationOptions, (notificationId) => {
+    if (chrome.runtime.lastError) {
+      console.error('Failed to create notification:', chrome.runtime.lastError);
+    } else {
+      console.log(`Notification created: ${notificationId}`);
+      
+      // Auto-clear notification after 5 seconds
+      setTimeout(() => {
+        chrome.notifications.clear(notificationId);
+      }, 5000);
+    }
+  });
+}
+
+/**
+ * Shows an error notification with consistent styling and messaging.
+ * Standardized error notification for user-facing error messages.
+ * 
+ * @param {string} message - Error message to display
+ */
+function showErrorNotification(message) {
+  showNotification('ClickAI Error', message, 'logo192.png');
+}
+
+/**
+ * Updates the extension badge text and color for visual status indication.
+ * Used to show processing state, error conditions, or other status information.
+ * 
+ * @param {string} text - Badge text (up to 4 characters)
+ * @param {string} color - Badge background color
+ */
+function updateExtensionBadge(text, color = '#FF6B6B') {
+  chrome.action.setBadgeText({ text: text });
+  chrome.action.setBadgeBackgroundColor({ color: color });
+  
+  // Clear badge after 3 seconds unless it's an error state
+  if (text && !text.includes('!')) {
+    setTimeout(() => {
+      chrome.action.setBadgeText({ text: '' });
+    }, 3000);
+  }
+}
+
+/**
+ * Retrieves information about the currently active tab.
+ * Used by popup and content scripts that need current tab context.
+ * 
+ * @param {Function} sendResponse - Callback to send tab information
+ */
+function getActiveTabInfo(sendResponse) {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (chrome.runtime.lastError) {
+      console.error('Failed to get active tab:', chrome.runtime.lastError);
+      sendResponse({ success: false, error: chrome.runtime.lastError.message });
+      return;
+    }
+    
+    if (tabs.length > 0) {
+      const activeTab = tabs[0];
+      console.log(`Active tab: ${activeTab.title} (${activeTab.url})`);
+      sendResponse({ 
+        success: true, 
+        tab: {
+          id: activeTab.id,
+          url: activeTab.url,
+          title: activeTab.title,
+          favIconUrl: activeTab.favIconUrl
+        }
+      });
+    } else {
+      sendResponse({ success: false, error: 'No active tab found' });
+    }
+  });
+}
+
+/**
+ * Handles extension startup and initialization.
+ * Performs any necessary setup when the extension service worker starts.
+ */
+chrome.runtime.onStartup.addListener(() => {
+  console.log('ClickAI extension starting up');
+  
+  // Clear any existing badge text on startup
+  chrome.action.setBadgeText({ text: '' });
+  
+  // Initialize any persistent storage or settings if needed
+  chrome.storage.local.get(['clickaiSettings'], (result) => {
+    if (!result.clickaiSettings) {
+      // Set default settings on first run
+      const defaultSettings = {
+        theme: 'light',
+        autoCapture: true,
+        notifications: true,
+        version: chrome.runtime.getManifest().version
+      };
+      
+      chrome.storage.local.set({ clickaiSettings: defaultSettings }, () => {
+        console.log('Default settings initialized');
+      });
+    }
+  });
+});
+
+/**
+ * Handles extension suspension and cleanup.
+ * Performs cleanup when the service worker is being suspended.
+ */
+chrome.runtime.onSuspend.addListener(() => {
+  console.log('ClickAI extension suspending - performing cleanup');
+  
+  // Clear any temporary data or pending operations
+  chrome.action.setBadgeText({ text: '' });
+});
+
+/**
+ * Handles tab updates to ensure extension functionality is maintained.
+ * Monitors tab changes that might affect extension operation.
+ */
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  // Only process completed page loads
+  if (changeInfo.status === 'complete' && tab.url) {
+    console.log(`Tab ${tabId} completed loading: ${tab.url}`);
+    
+    // Ensure content script is ready (in case of dynamic injection)
+    // This is mainly for debugging and ensuring proper setup
+    if (tab.url.startsWith('http://') || tab.url.startsWith('https://')) {
+      // Content script should already be injected via manifest
+      // This is just a fallback check
+      chrome.tabs.sendMessage(tabId, { type: 'ping' }, (response) => {
+        if (chrome.runtime.lastError) {
+          // Content script not responding - this is normal for some pages
+          console.log(`Content script not available on tab ${tabId}`);
+        }
+      });
+    }
+  }
+});
+
+// Global error handler for unhandled errors in the background script
+self.addEventListener('error', (event) => {
+  console.error('Unhandled error in background script:', event.error);
+});
+
+// Global handler for unhandled promise rejections
+self.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection in background script:', event.reason);
+});
+
+console.log('ClickAI background script loaded successfully');
