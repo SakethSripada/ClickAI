@@ -14,23 +14,9 @@ A powerful browser extension that provides instant AI assistance directly in you
 - **Code Highlighting**: Syntax highlighting for code blocks
 - **Cross-Platform**: Works on Chrome, Edge, and other Chromium-based browsers
 
-## 🚀 Quick Start
-
-### Option 1: Use the Published Extension (Recommended)
-
-Install ClickAI from the Chrome Web Store and start using AI assistance immediately:
-
-**[Install ClickAI from Chrome Web Store](https://chromewebstore.google.com/detail/clickai/baflaglcfkdecjepfinegoklkfaeongi)**
-
-The published extension includes a hosted backend service, so you can start using AI assistance immediately. You can also add your own OpenAI API key directly in the extension settings for full control over your AI interactions.
-
-### Option 2: Self-Hosted Setup (Advanced)
-
-If you prefer to host your own backend server and have complete control over the infrastructure, follow the instructions below:
-
 #### Browser Extension Setup
 
-1. **Download the Extension**
+1. **Clone the Extension**
    ```bash
    git clone https://github.com/SakethSripada/ClickAI.git
    cd clickai
@@ -206,7 +192,7 @@ clickai/
 Edit the server's OpenAI integration in `server/server.js`:
 - Adjust temperature for creativity vs consistency
 - Modify system prompts
-- Change model from GPT-4 to GPT-3.5-turbo for cost savings
+- Change model
 
 ### UI Customization
 
